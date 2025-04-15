@@ -417,10 +417,11 @@ body {
   background: #ffffff;
   border-bottom: 1px solid #c9c5d0;
   height: 50px;
+  display: flex;
 }
 
 .filter-cell {
-  padding: 8px;
+  flex:100
 }
 
 .filter-input {

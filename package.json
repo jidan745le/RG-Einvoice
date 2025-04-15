@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "E-Invoice Management System",
   "main": "index.js",
+  "homepage": "/e-invoice/",
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
@@ -20,6 +21,8 @@
     "@material-ui/core": "^4.12.4",
     "@material-ui/icons": "^4.11.3",
     "antd": "^5.24.6",
+    "lodash": "^4.17.21",
+    "moment": "^2.30.1",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
     "react-scripts": "^5.0.1"

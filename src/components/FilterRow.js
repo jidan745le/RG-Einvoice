@@ -1,6 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Icon } from '@material-ui/core';
 import PropTypes from 'prop-types';
+import { Input, Select, DatePicker } from 'antd';
+import moment from 'moment';
+import { debounce } from 'lodash';
+
+const { Option } = Select;
 
 /**
  * 表格过滤行组件
@@ -12,169 +17,219 @@ import PropTypes from 'prop-types';
  * @returns {JSX.Element} 过滤行组件
  */
 const FilterRow = ({ onFilterChange, filterValues = {}, onClearFilters }) => {
+  // Local state for immediate input values (before debounce)
+  const [localFilterValues, setLocalFilterValues] = useState(filterValues);
+
+  // Update local state when props change
+  useEffect(() => {
+    setLocalFilterValues(filterValues);
+  }, [filterValues]);
+
+  /**
+   * 防抖处理的过滤值更新函数
+   */
+  // Create a memoized debounced function
+  const debouncedFilterChange = useCallback(
+    debounce((newFilterValues) => {
+      if (onFilterChange) {
+        onFilterChange(newFilterValues);
+      }
+    }, 500),
+    [] // Empty dependency array as the debounce function itself doesn't need to change
+  );
+
+  // Effect to clean up the debounced function on unmount
+  useEffect(() => {
+    return () => {
+      debouncedFilterChange.cancel();
+    };
+  }, [debouncedFilterChange]);
+
   /**
    * 处理过滤输入变化
    * @param {string} field - 字段名
    * @param {*} value - 新的值
    */
   const handleFilterChange = (field, value) => {
-    if (onFilterChange) {
-      onFilterChange({ ...filterValues, [field]: value });
-    }
+    const newValue = value === '' ? undefined : value;
+    const newFilterValues = { ...localFilterValues, [field]: newValue };
+
+    // Update local state immediately for responsive UI
+    setLocalFilterValues(newFilterValues);
+
+    // Debounce the actual filter change that triggers API calls
+    debouncedFilterChange(newFilterValues);
   };
 
   /**
    * 清除所有过滤条件
    */
   const handleClearAll = () => {
+    setLocalFilterValues({});
     if (onClearFilters) {
       onClearFilters();
+    }
+  };
+
+  /**
+   * 处理日期变化
+   * 转换为OData兼容的日期格式
+   */
+  const handleDateChange = (date, dateString, field) => {
+    if (date) {
+      // Format date correctly for OData datetime compatibility
+      const formattedDate = date.format('YYYY-MM-DD');
+      handleFilterChange(field, formattedDate);
+    } else {
+      handleFilterChange(field, undefined);
     }
   };
 
   return (
     <div className="filter-row">
       <div className="table-row">
-        <div className="cell cell-checkbox">
+        <div style={{ display: 'flex', flex: 48, minWidth: 0, justifyContent: 'center', alignItems: 'center' }} className="cell cell-checkbox">
           <div className="icon">
             <Icon className="icon-grey icon-medium icon-light">filter_alt</Icon>
           </div>
         </div>
 
-        <div className="cell cell-expand">
-          <div className="icon" onClick={handleClearAll}>
+        <div style={{ display: 'flex', flex: 32, minWidth: 0, justifyContent: 'center', alignItems: 'center' }} className="cell cell-expand">
+          <div className="icon" onClick={handleClearAll} style={{ cursor: 'pointer' }}>
             <Icon className="icon-grey icon-medium icon-light">cancel</Icon>
           </div>
         </div>
 
         <div className="cell-date filter-cell">
-          <div 
-            className={`filter-input ${filterValues.postDate ? 'filter-input-active' : ''}`}
-            onClick={() => handleFilterChange('postDate', filterValues.postDate || 'Date')}
-          >
-            <div className="filter-input-text">
-              {filterValues.postDate || 'Date'}
-            </div>
-            <div className="icon">
-              <Icon className="icon-grey icon-medium icon-light">calendar_month</Icon>
-            </div>
-          </div>
+          <DatePicker
+            placeholder="Post Date"
+            value={localFilterValues.postDate ? moment(localFilterValues.postDate.split('T')[0]) : null}
+            onChange={(date, dateString) => handleDateChange(date, dateString, 'postDate')}
+            style={{ width: '80%' }}
+            size="small"
+            format="YYYY-MM-DD"
+          />
         </div>
 
         <div className="cell-id filter-cell">
-          <div 
-            className={`filter-input ${filterValues.id ? 'filter-input-active' : ''}`}
-            onClick={() => handleFilterChange('id', filterValues.id || '')}
-          >
-            <div className="filter-input-text">
-              {filterValues.id || 'ERP Invoice ID'}
-            </div>
-          </div>
+          <Input
+            placeholder="ERP Invoice ID"
+            style={{ width: '80%' }}
+            value={localFilterValues.id}
+            onChange={(e) => handleFilterChange('id', e.target.value)}
+            size="small"
+            allowClear
+          />
         </div>
 
         <div className="cell-type filter-cell">
-          <div 
-            className={`filter-input ${filterValues.type && filterValues.type !== 'All' ? 'filter-input-active' : ''}`}
-            onClick={() => handleFilterChange('type', filterValues.type || 'All')}
+          <Select
+            placeholder="Fapiao Type"
+            value={localFilterValues.type}
+            onChange={(value) => handleFilterChange('type', value)}
+            style={{ width: '80%' }}
+            size="small"
+            allowClear
           >
-            <div className="filter-input-text">
-              {filterValues.type || 'All'}
-            </div>
-            <div className="icon">
-              <Icon className="icon-grey icon-medium icon-light">arrow_drop_down</Icon>
-            </div>
-          </div>
+            <Option value="SIMALFA 309 RED 20 kg">SIMALFA 309 RED 20 kg</Option>
+          </Select>
         </div>
 
         <div className="cell-customer filter-cell">
-          <div 
-            className={`filter-input ${filterValues.customerName ? 'filter-input-active' : ''}`}
-            onClick={() => handleFilterChange('customerName', filterValues.customerName || '')}
-          >
-            <div className="filter-input-text">
-              {filterValues.customerName || 'Customer Name'}
-            </div>
-          </div>
+          <Input
+            placeholder="Customer Name"
+            style={{ width: '80%' }}
+            value={localFilterValues.customerName}
+            onChange={(e) => handleFilterChange('customerName', e.target.value)}
+            size="small"
+            allowClear
+          />
         </div>
 
         <div className="cell-amount filter-cell">
-          <div 
-            className={`filter-input ${filterValues.amount ? 'filter-input-active' : ''}`}
-            onClick={() => handleFilterChange('amount', filterValues.amount || '')}
-          >
-            <div className="filter-input-text">
-              {filterValues.amount || 'Invoice Amount'}
-            </div>
-          </div>
+          <Input
+            placeholder="Invoice Amount"
+            style={{ width: '80%' }}
+            value={localFilterValues.amount}
+            onChange={(e) => handleFilterChange('amount', e.target.value)}
+            size="small"
+            allowClear
+            type="number"
+          />
         </div>
 
         <div className="cell-comment filter-cell">
-          <div 
-            className={`filter-input ${filterValues.comment ? 'filter-input-active' : ''}`}
-            onClick={() => handleFilterChange('comment', filterValues.comment || '')}
-          >
-            <div className="filter-input-text">
-              {filterValues.comment || 'Comment'}
-            </div>
-          </div>
+          <Input
+            placeholder="Comment"
+            style={{ width: '80%' }}
+            value={localFilterValues.comment}
+            onChange={(e) => handleFilterChange('comment', e.target.value)}
+            size="small"
+            allowClear
+          />
         </div>
 
         <div className="cell-status filter-cell">
-          <div 
-            className={`filter-input ${filterValues.status && filterValues.status !== 'All' ? 'filter-input-active' : ''}`}
-            onClick={() => handleFilterChange('status', filterValues.status || 'All')}
+          <Select
+            placeholder="Status"
+            value={localFilterValues.status}
+            onChange={(value) => handleFilterChange('status', value)}
+            style={{ width: '80%' }}
+            size="small"
+            allowClear
           >
-            <div className="filter-input-text">
-              {filterValues.status || 'All'}
-            </div>
-            <div className="icon">
-              <Icon className="icon-grey icon-medium icon-light">arrow_drop_down</Icon>
-            </div>
-          </div>
+            <Option value="SUBMITTED">Submitted</Option>
+            <Option value="PENDING">Pending</Option>
+            <Option value="ERROR">Error</Option>
+            <Option value="RED_NOTE">Red Note</Option>
+          </Select>
         </div>
 
         <div className="cell-einvoice-id filter-cell">
-          <div 
-            className={`filter-input ${filterValues.einvoiceId ? 'filter-input-active' : ''}`}
-            onClick={() => handleFilterChange('einvoiceId', filterValues.einvoiceId || '')}
-          >
-            <div className="filter-input-text">
-              {filterValues.einvoiceId || 'E-Invoice ID'}
-            </div>
-          </div>
+          <Input
+            placeholder="E-Invoice ID"
+            style={{ width: '80%' }}
+            value={localFilterValues.einvoiceId}
+            onChange={(e) => handleFilterChange('einvoiceId', e.target.value)}
+            size="small"
+            allowClear
+          />
         </div>
 
         <div className="cell-pdf filter-cell">
-          <div 
-            className={`filter-input ${filterValues.hasPdf !== undefined ? 'filter-input-active' : ''}`}
-            onClick={() => handleFilterChange('hasPdf', filterValues.hasPdf || '')}
+          <Select
+            placeholder="E-Invoice PDF"
+            value={localFilterValues.hasPdf === undefined ? undefined : String(localFilterValues.hasPdf)}
+            onChange={(value) => handleFilterChange('hasPdf', value === undefined ? undefined : value === 'true')}
+            style={{ width: '80%' }}
+            size="small"
+            allowClear
           >
-            <div className="filter-input-text">
-              {filterValues.hasPdf !== undefined ? (filterValues.hasPdf ? 'Yes' : 'No') : 'E-Invoice PDF'}
-            </div>
-          </div>
+            <Option value="true">Yes</Option>
+            <Option value="false">No</Option>
+          </Select>
         </div>
 
         <div className="cell-einvoice-date filter-cell">
-          <div 
-            className={`filter-input ${filterValues.einvoiceDate ? 'filter-input-active' : ''}`}
-            onClick={() => handleFilterChange('einvoiceDate', filterValues.einvoiceDate || '')}
-          >
-            <div className="filter-input-text">
-              {filterValues.einvoiceDate || 'E-Invoice Date'}
-            </div>
-          </div>
+          <DatePicker
+            placeholder="E-Invoice Date"
+            value={localFilterValues.einvoiceDate ? moment(localFilterValues.einvoiceDate.split('T')[0]) : null}
+            onChange={(date, dateString) => handleDateChange(date, dateString, 'einvoiceDate')}
+            style={{ width: '80%' }}
+            size="small"
+            format="YYYY-MM-DD"
+          />
         </div>
 
         <div className="cell-submitted-by filter-cell">
-          <div 
-            className={`filter-input ${filterValues.submittedBy ? 'filter-input-active' : ''}`}
-            onClick={() => handleFilterChange('submittedBy', filterValues.submittedBy || '')}
-          >
-            <div className="filter-input-text">
-              {filterValues.submittedBy || 'E-Invoice Submitted By'}
-            </div>
-          </div>
+          <Input
+            placeholder="E-Invoice Submitted By"
+            style={{ width: '80%' }}
+            value={localFilterValues.submittedBy}
+            onChange={(e) => handleFilterChange('submittedBy', e.target.value)}
+            size="small"
+            allowClear
+          />
         </div>
       </div>
     </div>

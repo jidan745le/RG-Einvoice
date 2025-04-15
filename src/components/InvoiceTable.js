@@ -3,8 +3,148 @@ import { Icon } from '@material-ui/core';
 import { Table, Popover } from 'antd';
 import StatusChip from './StatusChip';
 import PdfChip from './PdfChip';
-import { invoiceData } from '../data/mockData';
 import FilterRow from './FilterRow';
+
+// Helper function to determine status from API data
+const mapApiToStatus = (item) => {
+  // This is a sample logic - adjust according to your actual business rules
+  if (item.einvoiceId || item.hasPdf) {
+    return 'SUBMITTED'; // If it has e-invoice ID or PDF, it's submitted
+  } else if (item.InvcHead_InvoiceComment &&
+    (item.InvcHead_InvoiceComment.includes('error') ||
+      item.InvcHead_InvoiceComment.toLowerCase().includes('fault'))) {
+    return 'ERROR';     // If comment contains error-related text
+  } else if (item.InvcHead_InvoiceComment &&
+    item.InvcHead_InvoiceComment.toLowerCase().includes('red')) {
+    return 'RED_NOTE';  // If comment contains 'red', it's a red note
+  } else {
+    return 'PENDING';   // Default status
+  }
+};
+
+// Function to transform API response data
+const transformInvoiceData = (apiData) => {
+  const invoiceMap = new Map();
+
+  // First pass: group by InvoiceNum and create parent invoice objects
+  apiData.forEach(item => {
+    const invoiceNum = item.InvcHead_InvoiceNum;
+
+    if (!invoiceMap.has(invoiceNum)) {
+      // Calculate the invoice total amount from this first line item
+      // We'll add more line items to the total in the second pass
+      const amount = parseFloat(item.InvcDtl_DocExtPrice || 0);
+
+      invoiceMap.set(invoiceNum, {
+        id: invoiceNum,
+        postDate: new Date(item.OrderHed_OrderDate).toLocaleDateString(),
+        type: 'SIMALFA',
+        customerName: item.Customer_Name,
+        amount: amount,
+        comment: item.InvcHead_InvoiceComment || '',
+        status: mapApiToStatus(item),
+        hasPdf: false, // Assuming no PDF by default
+        orderNum: item.OrderHed_OrderNum,
+        poNum: item.OrderHed_PONum,
+        childs: [],
+        totalAmount: amount // Keep track of total amount
+      });
+    } else {
+      // If we see another line for the same invoice, add its amount to the total
+      const invoice = invoiceMap.get(invoiceNum);
+      const lineAmount = parseFloat(item.InvcDtl_DocExtPrice || 0);
+      invoice.totalAmount += lineAmount;
+    }
+  });
+
+  // Second pass: add line items to each invoice
+  apiData.forEach(item => {
+    const invoiceNum = item.InvcHead_InvoiceNum;
+    const invoice = invoiceMap.get(invoiceNum);
+
+    invoice.childs.push({
+      lineNo: invoice.childs.length + 1,
+      partNo: item.InvcDtl_CommodityCode || '',
+      description: item.InvcDtl_LineDesc,
+      qty: item.InvcDtl_SellingShipQty,
+      unitPrice: item.InvcDtl_DocUnitPrice,
+      subtotal: item.InvcDtl_DocExtPrice,
+      taxRate: item.InvcTax_Percent,
+      taxTotal: (parseFloat(item.InvcDtl_DocExtPrice) * parseFloat(item.InvcTax_Percent) / 100).toFixed(2),
+      uom: item.InvcDtl_SalesUM
+    });
+  });
+
+  // Update each invoice with the correct total amount
+  invoiceMap.forEach(invoice => {
+    invoice.amount = invoice.totalAmount; // Set the final calculated amount
+    delete invoice.totalAmount; // Remove the temporary tracking property
+  });
+
+  return Array.from(invoiceMap.values());
+};
+
+// Function to construct OData filter query from filterValues
+const buildODataFilterQuery = (filterValues) => {
+  if (!filterValues || Object.keys(filterValues).length === 0) {
+    return '';
+  }
+
+  const filters = [];
+
+  // Map the filter fields to their corresponding OData fields
+  const fieldMappings = {
+    id: 'InvcHead_InvoiceNum',
+    customerName: 'Customer_Name',
+    amount: 'InvcDtl_DocExtPrice',
+    comment: 'InvcHead_InvoiceComment',
+    type: 'InvcDtl_LineDesc', // Assuming Fapiao Type maps to line description
+    postDate: 'OrderHed_OrderDate',
+    orderNum: 'OrderHed_OrderNum',
+    poNum: 'OrderHed_PONum',
+    einvoiceId: 'InvcHead_InvoiceNum', // Placeholder - adjust as needed
+    submittedBy: 'Customer_Name', // Placeholder - adjust as needed
+  };
+
+  Object.entries(filterValues).forEach(([key, value]) => {
+    if (value && value !== 'All' && fieldMappings[key]) {
+      const field = fieldMappings[key];
+
+      // Handle different filter types
+      if (key === 'postDate' || key === 'einvoiceDate') {
+        // For date fields, use datetime function to convert string to OData datetime
+        // Format: year-month-day
+        filters.push(`${field} eq datetime'${value}'`);
+      } else if (key === 'id' || key === 'einvoiceId' || key === 'orderNum') {
+        // Number filtering for IDs - use exact matches
+        if (!isNaN(value)) {
+          filters.push(`${field} eq ${value}`);
+        }
+      } else if (key === 'amount') {
+        // For amount, use exact match
+        if (!isNaN(value)) {
+          filters.push(`${field} eq ${value}`);
+        }
+      } else if (typeof value === 'string') {
+        // String filtering - use exact match instead of contains
+        const escapedValue = value.replace(/'/g, "''");
+        filters.push(`${field} eq '${escapedValue}'`);
+      } else if (key === 'hasPdf') {
+        // Boolean filtering
+        const boolValue = value ? 'true' : 'false';
+        filters.push(`HasPdf eq ${boolValue}`);
+      }
+    }
+  });
+
+  // Build the OData query string
+  let queryString = '';
+  if (filters.length > 0) {
+    queryString = `$filter=${filters.join(' and ')}`;
+  }
+
+  return queryString;
+};
 
 const InvoiceTable = () => {
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
@@ -12,31 +152,45 @@ const InvoiceTable = () => {
   const [errorInvoiceId, setErrorInvoiceId] = useState(null);
   const [expandedRowKeys, setExpandedRowKeys] = useState([]);
   const [filterValues, setFilterValues] = useState({});
-  const [filteredData, setFilteredData] = useState(invoiceData);
+  const [filteredData, setFilteredData] = useState([]);
+  const [invoiceData, setInvoiceData] = useState([]);
+  const [showFilterRow, setShowFilterRow] = useState(true);
 
-  // Apply filters to data
+  // Fetch and transform data
   useEffect(() => {
-    let newData = [...invoiceData];
-    
-    // Apply filters
-    Object.entries(filterValues).forEach(([key, value]) => {
-      if (value && value !== 'All') {
-        newData = newData.filter(item => {
-          if (key === 'hasPdf') {
-            return item[key] === (value === 'Yes');
+    const fetchData = async () => {
+      try {
+        const filterQuery = buildODataFilterQuery(filterValues);
+        const url = `https://simalfa.kineticcloud.cn/simalfaprod/api/v1/BaqSvc/InvReport(SIMALFA)${filterQuery ? `?${filterQuery}` : ''}`;
+
+        console.log('Fetching data with URL:', url);
+
+        const response = await fetch(url, {
+          headers: {
+            'Authorization': 'Basic bWFuYWdlcjo0V2slNkJu'
           }
-          
-          if (typeof item[key] === 'string') {
-            return item[key].toLowerCase().includes(value.toLowerCase());
-          }
-          
-          return item[key] === value;
         });
+
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const transformedData = transformInvoiceData(data.value);
+        setInvoiceData(transformedData);
+        setFilteredData(transformedData);
+      } catch (error) {
+        console.error('Error fetching invoice data:', error);
       }
-    });
-    
-    setFilteredData(newData);
-  }, [filterValues]);
+    };
+
+    fetchData();
+  }, [filterValues]); // Re-fetch when filterValues change
+
+  // Handler for filter icon click to toggle filter row
+  const toggleFilterRow = () => {
+    setShowFilterRow(!showFilterRow);
+  };
 
   // Handler for filter changes
   const handleFilterChange = (newFilterValues) => {
@@ -73,12 +227,7 @@ const InvoiceTable = () => {
         dataIndex: 'lineNo',
         key: 'lineNo',
         width: 80,
-      },
-      {
-        title: 'Part No.',
-        dataIndex: 'partNo',
-        key: 'partNo',
-        width: 100,
+        align: 'center',
       },
       {
         title: 'Description',
@@ -92,6 +241,7 @@ const InvoiceTable = () => {
         key: 'qty',
         width: 80,
         align: 'right',
+        render: (text, record) => `${text} ${record.uom}`,
       },
       {
         title: 'Unit Price',
@@ -99,6 +249,7 @@ const InvoiceTable = () => {
         key: 'unitPrice',
         width: 120,
         align: 'right',
+        render: (text) => `¥${parseFloat(text).toFixed(2)}`,
       },
       {
         title: 'Subtotal',
@@ -106,6 +257,7 @@ const InvoiceTable = () => {
         key: 'subtotal',
         width: 120,
         align: 'right',
+        render: (text) => `¥${parseFloat(text).toFixed(2)}`,
       },
       {
         title: 'Tax Rate',
@@ -113,6 +265,7 @@ const InvoiceTable = () => {
         key: 'taxRate',
         width: 100,
         align: 'right',
+        render: (text) => `${text}%`,
       },
       {
         title: 'Tax Total',
@@ -120,6 +273,7 @@ const InvoiceTable = () => {
         key: 'taxTotal',
         width: 100,
         align: 'right',
+        render: (text) => `¥${text}`,
         className: 'highlighted-column',
       },
     ];
@@ -133,6 +287,8 @@ const InvoiceTable = () => {
           lineHeight: '20px',
           letterSpacing: '0.1px',
           fontWeight: '500',
+          padding: '10px',
+          marginBottom: '10px',
         }}>
           Invoice Details
         </div>
@@ -197,7 +353,7 @@ const InvoiceTable = () => {
       key: 'amount',
       className: 'cell cell-amount',
       width: 100,
-      render: (text) => <div className="cell-text">{text}</div>,
+      render: (text) => <div className="cell-text">¥{parseFloat(text).toFixed(2)}</div>,
     },
     {
       title: 'Comment',
@@ -205,7 +361,7 @@ const InvoiceTable = () => {
       key: 'comment',
       className: 'cell cell-comment',
       width: 100,
-      render: (text) => <div className="cell-text">{text}</div>,
+      render: (text) => <div className="cell-text">{text || '--'}</div>,
     },
     {
       title: 'Status',
@@ -245,9 +401,7 @@ const InvoiceTable = () => {
       key: 'einvoiceDate',
       className: 'cell cell-einvoice-date',
       width: 100,
-      render: (text) => (
-        text ? <div className="cell-text">{text}</div> : <div className="cell-empty">--</div>
-      ),
+      render: (text) => <div className="cell-text">{text}</div>,
     },
     {
       title: 'E-Invoice Submitted By',
@@ -305,7 +459,11 @@ const InvoiceTable = () => {
       <div className="custom-table-header">
         <div className="table-row">
           <div className=" cell-expand" style={{ display: 'flex', flex: 48, minWidth: 0, justifyContent: 'center', alignItems: 'center' }}>
-            <Icon className="icon-grey icon-medium icon-light">
+            <Icon
+              className="icon-grey icon-medium icon-light"
+              style={{ cursor: 'pointer' }}
+              onClick={toggleFilterRow}
+            >
               {'filter_alt'}
             </Icon>
           </div>
@@ -339,21 +497,23 @@ const InvoiceTable = () => {
           <div className="header-cell cell-pdf">
             <div className="cell-header-text">E-Invoice PDF</div>
           </div>
-          <div className="header-cell cell-einvoice-date">
-            <div className="cell-header-text">E-Invoice Date</div>
+          <div className="header-cell cell-order-num">
+            <div className="cell-header-text">Order Number</div>
           </div>
-          <div className="header-cell cell-submitted-by">
-            <div className="cell-header-text">E-Invoice Submitted By</div>
+          <div className="header-cell cell-po-num">
+            <div className="cell-header-text">PO Number</div>
           </div>
         </div>
       </div>
 
-      {/* Filter Row */}
-      <FilterRow 
-        filterValues={filterValues} 
-        onFilterChange={handleFilterChange} 
-        onClearFilters={handleClearFilters} 
-      />
+      {/* Filter Row - Only show if showFilterRow is true */}
+      {showFilterRow && (
+        <FilterRow
+          filterValues={filterValues}
+          onFilterChange={handleFilterChange}
+          onClearFilters={handleClearFilters}
+        />
+      )}
 
       {/* Table Body - using Ant Design Table */}
       <Table {...tableConfig} />
