@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from '@material-ui/core';
-import { Table, Popover } from 'antd';
+import { Table, Popover, Tooltip } from 'antd';
 import StatusChip from './StatusChip';
 import PdfChip from './PdfChip';
 import FilterRow from './FilterRow';
@@ -25,6 +25,8 @@ const mapApiToStatus = (item) => {
 // Function to transform API response data
 const transformInvoiceData = (apiData) => {
   const invoiceMap = new Map();
+  // Fapiao type constants
+  const FAPIAO_TYPES = ['增值税专用发票', '普通发票'];
 
   // First pass: group by InvoiceNum and create parent invoice objects
   apiData.forEach(item => {
@@ -35,10 +37,13 @@ const transformInvoiceData = (apiData) => {
       // We'll add more line items to the total in the second pass
       const amount = parseFloat(item.InvcDtl_DocExtPrice || 0);
 
+      // Randomly select a Fapiao type
+      const randomFapiaoType = FAPIAO_TYPES[Math.floor(Math.random() * FAPIAO_TYPES.length)];
+
       invoiceMap.set(invoiceNum, {
         id: invoiceNum,
         postDate: new Date(item.OrderHed_OrderDate).toLocaleDateString(),
-        type: 'SIMALFA',
+        type: randomFapiaoType,
         customerName: item.Customer_Name,
         amount: amount,
         comment: item.InvcHead_InvoiceComment || '',
@@ -144,6 +149,35 @@ const buildODataFilterQuery = (filterValues) => {
   }
 
   return queryString;
+};
+
+// Smart tooltip component that only shows when text is truncated
+const TruncatedCell = ({ text, className = 'cell-text', estimatedCharWidth = 8, cellWidth = 100 }) => {
+  const cellRef = useRef(null);
+  const [isTruncated, setIsTruncated] = useState(false);
+  const content = text || '--';
+
+  // Check if text might be truncated based on character count and estimated width
+  const checkTruncation = () => {
+    const textLength = content.length;
+    // Estimate if text will be truncated (approximate calculation)
+    // This is a simple estimation - actual truncation depends on font, characters, etc.
+    const estimatedTextWidth = textLength * estimatedCharWidth;
+    return estimatedTextWidth > cellWidth - 10; // Allow for some padding
+  };
+
+  useEffect(() => {
+    // Set truncated state based on estimation
+    setIsTruncated(checkTruncation());
+  }, [text, cellWidth]);
+
+  return isTruncated ? (
+    <Tooltip title={content} placement="topLeft">
+      <div className={className} ref={cellRef}>{content}</div>
+    </Tooltip>
+  ) : (
+    <div className={className}>{content}</div>
+  );
 };
 
 const InvoiceTable = () => {
@@ -321,7 +355,7 @@ const InvoiceTable = () => {
       key: 'postDate',
       className: 'cell cell-date',
       width: 100,
-      render: (text) => <div className="cell-text">{text}</div>,
+      render: (text) => <TruncatedCell text={text} />,
     },
     {
       title: 'ERP Invoice ID',
@@ -329,7 +363,7 @@ const InvoiceTable = () => {
       key: 'id',
       className: 'cell cell-id',
       width: 100,
-      render: (text) => <div className="cell-text cell-link">{text}</div>,
+      render: (text) => <TruncatedCell text={text} className="cell-text cell-link" />,
     },
     {
       title: 'Fapiao Type',
@@ -337,7 +371,7 @@ const InvoiceTable = () => {
       key: 'type',
       className: 'cell cell-type',
       width: 100,
-      render: (text) => <div className="cell-text">{text}</div>,
+      render: (text) => <TruncatedCell text={text} />,
     },
     {
       title: 'Customer Name',
@@ -345,7 +379,7 @@ const InvoiceTable = () => {
       key: 'customerName',
       className: 'cell cell-customer',
       width: 100,
-      render: (text) => <div className="cell-text">{text}</div>,
+      render: (text) => <TruncatedCell text={text} />,
     },
     {
       title: 'Invoice Amount',
@@ -353,7 +387,10 @@ const InvoiceTable = () => {
       key: 'amount',
       className: 'cell cell-amount',
       width: 100,
-      render: (text) => <div className="cell-text">¥{parseFloat(text).toFixed(2)}</div>,
+      render: (text) => {
+        const formattedAmount = `¥${parseFloat(text).toFixed(2)}`;
+        return <TruncatedCell text={formattedAmount} />;
+      },
     },
     {
       title: 'Comment',
@@ -361,7 +398,7 @@ const InvoiceTable = () => {
       key: 'comment',
       className: 'cell cell-comment',
       width: 100,
-      render: (text) => <div className="cell-text">{text || '--'}</div>,
+      render: (text) => <TruncatedCell text={text} />,
     },
     {
       title: 'Status',
@@ -381,9 +418,7 @@ const InvoiceTable = () => {
       key: 'einvoiceId',
       className: 'cell cell-einvoice-id',
       width: 100,
-      render: (text) => (
-        text ? <div className="cell-text">{text}</div> : <div className="cell-empty">--</div>
-      ),
+      render: (text) => text ? <TruncatedCell text={text} /> : <div className="cell-empty">--</div>,
     },
     {
       title: 'E-Invoice PDF',
@@ -401,7 +436,7 @@ const InvoiceTable = () => {
       key: 'einvoiceDate',
       className: 'cell cell-einvoice-date',
       width: 100,
-      render: (text) => <div className="cell-text">{text}</div>,
+      render: (text) => <TruncatedCell text={text} />,
     },
     {
       title: 'E-Invoice Submitted By',
@@ -409,9 +444,7 @@ const InvoiceTable = () => {
       key: 'submittedBy',
       className: 'cell cell-submitted-by',
       width: 100,
-      render: (text) => (
-        text ? <div className="cell-text">{text}</div> : <div className="cell-empty">--</div>
-      ),
+      render: (text) => text ? <TruncatedCell text={text} /> : <div className="cell-empty">--</div>,
     },
   ];
 
@@ -463,45 +496,46 @@ const InvoiceTable = () => {
               className="icon-grey icon-medium icon-light"
               style={{ cursor: 'pointer' }}
               onClick={toggleFilterRow}
+              title="Toggle filter row visibility"
             >
               {'filter_alt'}
             </Icon>
           </div>
           <div className="cell-checkbox" style={{ display: 'flex', flex: 32, minWidth: 0, justifyContent: 'center', alignItems: 'center' }}>
-            <input style={{ width: '16px', height: '16px' }} type="checkbox" />
+            <input style={{ width: '16px', height: '16px' }} type="checkbox" title="Select all rows" />
           </div>
           <div className="header-cell cell-date">
-            <div className="cell-header-text">Post Date</div>
+            <div className="cell-header-text" title="Date when invoice was posted">Post Date</div>
           </div>
           <div className="header-cell cell-id">
-            <div className="cell-header-text">ERP Invoice ID</div>
+            <div className="cell-header-text" title="ERP system invoice identifier">ERP Invoice ID</div>
           </div>
           <div className="header-cell cell-type">
-            <div className="cell-header-text">Fapiao Type</div>
+            <div className="cell-header-text" title="Type of fapiao document">Fapiao Type</div>
           </div>
           <div className="header-cell cell-customer">
-            <div className="cell-header-text">Customer Name</div>
+            <div className="cell-header-text" title="Name of the customer">Customer Name</div>
           </div>
           <div className="header-cell cell-amount">
-            <div className="cell-header-text">Invoice Amount</div>
+            <div className="cell-header-text" title="Total invoice amount">Invoice Amount</div>
           </div>
           <div className="header-cell cell-comment">
-            <div className="cell-header-text">Comment</div>
+            <div className="cell-header-text" title="Additional notes about the invoice">Comment</div>
           </div>
           <div className="header-cell cell-status">
-            <div className="cell-header-text">Status</div>
+            <div className="cell-header-text" title="Current status of the invoice">Status</div>
           </div>
           <div className="header-cell cell-einvoice-id">
-            <div className="cell-header-text">E-Invoice ID</div>
+            <div className="cell-header-text" title="Electronic invoice identifier">E-Invoice ID</div>
           </div>
           <div className="header-cell cell-pdf">
-            <div className="cell-header-text">E-Invoice PDF</div>
+            <div className="cell-header-text" title="PDF document availability">E-Invoice PDF</div>
           </div>
-          <div className="header-cell cell-order-num">
-            <div className="cell-header-text">Order Number</div>
+          <div className="header-cell cell-einvoice-date">
+            <div className="cell-header-text" title="Date of electronic invoice issuance">E-Invoice Date</div>
           </div>
-          <div className="header-cell cell-po-num">
-            <div className="cell-header-text">PO Number</div>
+          <div className="header-cell cell-submitted-by">
+            <div className="cell-header-text" title="Person who submitted the electronic invoice">E-Invoice Submitted By</div>
           </div>
         </div>
       </div>

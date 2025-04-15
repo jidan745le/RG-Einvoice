@@ -108,6 +108,7 @@ const FilterRow = ({ onFilterChange, filterValues = {}, onClearFilters }) => {
             style={{ width: '80%' }}
             size="small"
             format="YYYY-MM-DD"
+            title="Filter by post date"
           />
         </div>
 
@@ -119,6 +120,7 @@ const FilterRow = ({ onFilterChange, filterValues = {}, onClearFilters }) => {
             onChange={(e) => handleFilterChange('id', e.target.value)}
             size="small"
             allowClear
+            title="Filter by invoice ID"
           />
         </div>
 
@@ -130,8 +132,10 @@ const FilterRow = ({ onFilterChange, filterValues = {}, onClearFilters }) => {
             style={{ width: '80%' }}
             size="small"
             allowClear
+            title="Filter by fapiao type"
           >
-            <Option value="SIMALFA 309 RED 20 kg">SIMALFA 309 RED 20 kg</Option>
+            <Option value="增值税专用发票">增值税专用发票</Option>
+            <Option value="普通发票">普通发票</Option>
           </Select>
         </div>
 
@@ -143,6 +147,7 @@ const FilterRow = ({ onFilterChange, filterValues = {}, onClearFilters }) => {
             onChange={(e) => handleFilterChange('customerName', e.target.value)}
             size="small"
             allowClear
+            title="Filter by customer name"
           />
         </div>
 
@@ -155,6 +160,7 @@ const FilterRow = ({ onFilterChange, filterValues = {}, onClearFilters }) => {
             size="small"
             allowClear
             type="number"
+            title="Filter by exact amount"
           />
         </div>
 
@@ -166,6 +172,7 @@ const FilterRow = ({ onFilterChange, filterValues = {}, onClearFilters }) => {
             onChange={(e) => handleFilterChange('comment', e.target.value)}
             size="small"
             allowClear
+            title="Filter by comment text"
           />
         </div>
 
@@ -177,6 +184,7 @@ const FilterRow = ({ onFilterChange, filterValues = {}, onClearFilters }) => {
             style={{ width: '80%' }}
             size="small"
             allowClear
+            title="Filter by invoice status"
           >
             <Option value="SUBMITTED">Submitted</Option>
             <Option value="PENDING">Pending</Option>
@@ -193,6 +201,7 @@ const FilterRow = ({ onFilterChange, filterValues = {}, onClearFilters }) => {
             onChange={(e) => handleFilterChange('einvoiceId', e.target.value)}
             size="small"
             allowClear
+            title="Filter by e-invoice ID"
           />
         </div>
 
@@ -204,6 +213,7 @@ const FilterRow = ({ onFilterChange, filterValues = {}, onClearFilters }) => {
             style={{ width: '80%' }}
             size="small"
             allowClear
+            title="Filter by PDF availability"
           >
             <Option value="true">Yes</Option>
             <Option value="false">No</Option>
@@ -218,6 +228,7 @@ const FilterRow = ({ onFilterChange, filterValues = {}, onClearFilters }) => {
             style={{ width: '80%' }}
             size="small"
             format="YYYY-MM-DD"
+            title="Filter by e-invoice date"
           />
         </div>
 
@@ -229,6 +240,7 @@ const FilterRow = ({ onFilterChange, filterValues = {}, onClearFilters }) => {
             onChange={(e) => handleFilterChange('submittedBy', e.target.value)}
             size="small"
             allowClear
+            title="Filter by submission user"
           />
         </div>
       </div>
