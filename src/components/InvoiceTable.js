@@ -4,6 +4,7 @@ import { Table, Popover, Tooltip } from 'antd';
 import StatusChip from './StatusChip';
 import PdfChip from './PdfChip';
 import FilterRow from './FilterRow';
+import { THEME } from './TopBar';
 
 // Helper function to determine status from API data
 const mapApiToStatus = (item) => {
@@ -86,7 +87,9 @@ const transformInvoiceData = (apiData) => {
     delete invoice.totalAmount; // Remove the temporary tracking property
   });
 
-  return Array.from(invoiceMap.values());
+  const retVal = Array.from(invoiceMap.values());
+  console.log('retVal', retVal);
+  return retVal;
 };
 
 // Function to construct OData filter query from filterValues
@@ -182,22 +185,32 @@ const TruncatedCell = ({ text, className = 'cell-text', estimatedCharWidth = 8, 
   );
 };
 
-const InvoiceTable = () => {
+const InvoiceTable = ({ onDataChange, filterValues: externalFilterValues, onFilterChange }) => {
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [showPopover, setShowPopover] = useState(false);
   const [errorInvoiceId, setErrorInvoiceId] = useState(null);
   const [expandedRowKeys, setExpandedRowKeys] = useState([]);
-  const [filterValues, setFilterValues] = useState({});
+  const [filterValues, setFilterValues] = useState({}); // 使用组件内部的 filterValues 状态
   const [filteredData, setFilteredData] = useState([]);
-  const [invoiceData, setInvoiceData] = useState([]);
+  const [allInvoiceData, setAllInvoiceData] = useState([]);
   const [showFilterRow, setShowFilterRow] = useState(true);
 
-  // Fetch and transform data
+  // 接收外部 filterValues 变化
+  useEffect(() => {
+    if (externalFilterValues) {
+      setFilterValues(externalFilterValues);
+    }
+  }, [externalFilterValues]);
+
+  // 获取数据的 useEffect
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const filterQuery = buildODataFilterQuery(filterValues);
-        // 不要再次拼接问号，因为filterQuery已经包含了$filter=
+        // 创建不包含 status 的过滤条件副本
+        const apiFilterValues = { ...filterValues };
+        delete apiFilterValues.status;
+
+        const filterQuery = buildODataFilterQuery(apiFilterValues);
         const url = `https://simalfa.kineticcloud.cn/simalfaprod/api/v1/BaqSvc/InvReport(SIMALFA)${filterQuery ? `?${filterQuery}` : ''}`;
 
         console.log('Fetching data with URL:', url);
@@ -214,29 +227,71 @@ const InvoiceTable = () => {
 
         const data = await response.json();
         const transformedData = transformInvoiceData(data.value);
-        setInvoiceData(transformedData);
-        setFilteredData(transformedData);
+        console.log('transformedData', transformedData);
+
+        setAllInvoiceData(transformedData);
+
+        // 调用数据变化回调
+        if (onDataChange) {
+          onDataChange(transformedData);
+        }
       } catch (error) {
         console.error('Error fetching invoice data:', error);
       }
     };
 
     fetchData();
-  }, [filterValues]); // Re-fetch when filterValues change
+  }, [filterValues, onDataChange]);
+
+  // 客户端状态过滤
+  useEffect(() => {
+
+
+    let dataToDisplay = [...allInvoiceData];
+
+    // 如果有状态过滤，应用状态过滤
+    if (filterValues.status && filterValues.status !== 'viewAll') {
+      // 将菜单ID映射到状态值
+      const statusMapping = {
+        'pending': 'PENDING',
+        'submitted': 'SUBMITTED',
+        'error': 'ERROR',
+        'redNote': 'RED_NOTE'
+      };
+
+      const targetStatus = statusMapping[filterValues.status];
+      if (targetStatus) {
+        dataToDisplay = dataToDisplay.filter(item => item.status === targetStatus);
+      }
+    }
+
+    setFilteredData(dataToDisplay);
+  }, [allInvoiceData, filterValues.status]);
+
+  // 处理过滤器变化
+  const handleFilterChange = (newFilterValues) => {
+    console.log('newFilterValues', newFilterValues);
+    setFilterValues(newFilterValues);
+
+    // 如果提供了外部过滤回调，调用它
+    if (onFilterChange) {
+      onFilterChange(newFilterValues);
+    }
+  };
+
+  // 清除所有过滤器
+  const handleClearFilters = () => {
+    setFilterValues({});
+
+    // 如果提供了外部过滤回调，调用它
+    if (onFilterChange) {
+      onFilterChange({});
+    }
+  };
 
   // Handler for filter icon click to toggle filter row
   const toggleFilterRow = () => {
     setShowFilterRow(!showFilterRow);
-  };
-
-  // Handler for filter changes
-  const handleFilterChange = (newFilterValues) => {
-    setFilterValues(newFilterValues);
-  };
-
-  // Handler for clearing all filters
-  const handleClearFilters = () => {
-    setFilterValues({});
   };
 
   // Handler for row selection
@@ -453,7 +508,16 @@ const InvoiceTable = () => {
 
   // Define table configurations
   const tableConfig = {
-    rowSelection: rowSelection,
+    rowSelection: {
+      ...rowSelection,
+      selectedRowKeys,
+      columnWidth: 32,
+      getCheckboxProps: record => ({
+        style: {
+          backgroundColor: selectedRowKeys.includes(record.id) ? '#FFF3E5' : ''
+        }
+      }),
+    },
     expandable: {
       expandedRowRender,
       expandIcon: ({ expanded, onExpand, record, ...props }) => (
@@ -473,10 +537,11 @@ const InvoiceTable = () => {
         setExpandedRowKeys(expanded ? [...expandedRowKeys, record.id] : expandedRowKeys.filter(id => id !== record.id));
       }
     },
-    rowClassName: (record, index) => (
-      index % 2 === 0 ? 'table-body-row' : 'table-body-row-alternate'
-    ),
-
+    rowClassName: (record, index) => {
+      const isSelected = selectedRowKeys.includes(record.id);
+      const baseClass = index % 2 === 0 ? 'table-body-row' : 'table-body-row-alternate';
+      return isSelected ? `${baseClass} selected-row` : baseClass;
+    },
     dataSource: filteredData.map(item => ({ ...item, key: item.id })),
     columns: columns,
     pagination: true,
@@ -491,8 +556,23 @@ const InvoiceTable = () => {
 
   return (
     <div>
-      {/* 自定义表头 */}
-      <div className="custom-table-header">
+      <style>
+        {`
+          .invoice-table-ant .selected-row,
+          .invoice-table-ant .selected-row:hover {
+            background-color: #FFF3E5 !important;
+          }
+          
+          .invoice-table-ant .selected-row td {
+            background-color: #FFF3E5 !important;
+          }
+          
+          .invoice-table-ant .ant-table-row-selected > td {
+            background-color: #FFF3E5 !important;
+          }
+        `}
+      </style>
+      <div className="custom-table-header" style={{ backgroundColor: THEME.secondaryContainer }}>
         <div className="table-row">
           <div className=" cell-expand" style={{ display: 'flex', flex: 48, minWidth: 0, justifyContent: 'center', alignItems: 'center' }}>
             <Icon
@@ -543,7 +623,6 @@ const InvoiceTable = () => {
         </div>
       </div>
 
-      {/* Filter Row - Only show if showFilterRow is true */}
       {showFilterRow && (
         <FilterRow
           filterValues={filterValues}
@@ -552,7 +631,6 @@ const InvoiceTable = () => {
         />
       )}
 
-      {/* Table Body - using Ant Design Table */}
       <Table {...tableConfig} />
 
       {/* Error popover */}
