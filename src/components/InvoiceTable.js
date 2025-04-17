@@ -131,9 +131,9 @@ const buildODataFilterQuery = (filterValues) => {
           filters.push(`${field} eq ${value}`);
         }
       } else if (typeof value === 'string') {
-        // String filtering - use exact match instead of contains
+        // String filtering - 使用 indexof 函数实现模糊搜索
         const escapedValue = value.replace(/'/g, "''");
-        filters.push(`${field} eq '${escapedValue}'`);
+        filters.push(`indexof(tolower(${field}), '${escapedValue.toLowerCase()}') gt 0`);
       } else if (key === 'hasPdf') {
         // Boolean filtering
         const boolValue = value ? 'true' : 'false';
@@ -145,7 +145,9 @@ const buildODataFilterQuery = (filterValues) => {
   // Build the OData query string
   let queryString = '';
   if (filters.length > 0) {
-    queryString = `$filter=${filters.join(' and ')}`;
+    // 使用encodeURIComponent对整个过滤字符串进行编码
+    const filterStr = filters.join(' and ');
+    queryString = `$filter=${encodeURIComponent(filterStr)}`;
   }
 
   return queryString;
@@ -195,6 +197,7 @@ const InvoiceTable = () => {
     const fetchData = async () => {
       try {
         const filterQuery = buildODataFilterQuery(filterValues);
+        // 不要再次拼接问号，因为filterQuery已经包含了$filter=
         const url = `https://simalfa.kineticcloud.cn/simalfaprod/api/v1/BaqSvc/InvReport(SIMALFA)${filterQuery ? `?${filterQuery}` : ''}`;
 
         console.log('Fetching data with URL:', url);
