@@ -253,10 +253,10 @@ const InvoiceTable = ({ onDataChange, filterValues: externalFilterValues, onFilt
     if (filterValues.status && filterValues.status !== 'viewAll') {
       // 将菜单ID映射到状态值
       const statusMapping = {
-        'pending': 'PENDING',
-        'submitted': 'SUBMITTED',
-        'error': 'ERROR',
-        'redNote': 'RED_NOTE'
+        'PENDING': 'PENDING',
+        'SUBMITTED': 'SUBMITTED',
+        'ERROR': 'ERROR',
+        'RED_NOTE': 'RED_NOTE'
       };
 
       const targetStatus = statusMapping[filterValues.status];
