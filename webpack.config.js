@@ -64,7 +64,7 @@ module.exports = (env, argv) => {
         directory: path.join(__dirname, 'public'),
         publicPath: '/e-invoice/'
       },
-      port: 3001,
+      port: 3000,
       hot: true,
       historyApiFallback: {
         index: '/e-invoice/'
@@ -72,7 +72,7 @@ module.exports = (env, argv) => {
       proxy: [
         {
           context: ['/api'],
-          target: 'http://localhost:3000',
+          target: 'http://localhost:3003',
           changeOrigin: true,
         }
       ]

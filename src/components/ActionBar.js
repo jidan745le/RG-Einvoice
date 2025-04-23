@@ -45,7 +45,7 @@ const ActionBar = ({ selectedInvoices = [], onRefresh }) => {
 
       // Submit each invoice in sequence
       for (const invoice of selectedInvoices) {
-        const response = await axios.post(`http://localhost:3000/api/invoice/${invoice.id}/submit`, 
+        const response = await axios.post(`/api/invoice/${invoice.id}/submit`, 
           { submittedBy },
           {
             headers: {
