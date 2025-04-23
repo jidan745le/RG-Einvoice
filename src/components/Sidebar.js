@@ -1,6 +1,6 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
-const Sidebar = ({ invoiceData = [], onFilterChange, filterValues = {} }) => {
+const Sidebar = ({ invoiceData = {}, onFilterChange, filterValues = {} }) => {
   const [activeId, setActiveId] = useState('viewAll');
 
   // 当外部 filterValues 中的 status 变化时，更新活动项
@@ -16,30 +16,17 @@ const Sidebar = ({ invoiceData = [], onFilterChange, filterValues = {} }) => {
   // 使用 useMemo 动态计算各状态的发票数量
   const menuItems = useMemo(() => {
     // 计算各状态的数量
-    const countByStatus = {
-      PENDING: 0,
-      SUBMITTED: 0,
-      ERROR: 0,
-      RED_NOTE: 0
-    };
 
-    // 统计数量
-    invoiceData.forEach(invoice => {
-      if (invoice.status && countByStatus.hasOwnProperty(invoice.status)) {
-        countByStatus[invoice.status]++;
-      }
-    });
 
     // 计算总数
-    const totalCount = invoiceData.length;
 
     // 返回完整的菜单项数组，设置活动状态
     return [
-      { id: 'viewAll', label: 'View All', count: totalCount, active: activeId === 'viewAll' },
-      { id: 'PENDING', label: 'Pending', count: countByStatus.PENDING, active: activeId === 'PENDING' },
-      { id: 'SUBMITTED', label: 'Submitted', count: countByStatus.SUBMITTED, active: activeId === 'SUBMITTED' },
-      { id: 'ERROR', label: 'Error', count: countByStatus.ERROR, active: activeId === 'ERROR' },
-      { id: 'RED_NOTE', label: 'Red Note', count: countByStatus.RED_NOTE, active: activeId === 'RED_NOTE' }
+      { id: 'viewAll', label: 'View All', count: invoiceData?.totals?.TOTAL, active: activeId === 'viewAll' },
+      { id: 'PENDING', label: 'Pending', count: invoiceData?.totals?.PENDING, active: activeId === 'PENDING' },
+      { id: 'SUBMITTED', label: 'Submitted', count: invoiceData?.totals?.SUBMITTED, active: activeId === 'SUBMITTED' },
+      { id: 'ERROR', label: 'Error', count: invoiceData?.totals?.ERROR, active: activeId === 'ERROR' },
+      { id: 'RED_NOTE', label: 'Red Note', count: invoiceData?.totals?.RED_NOTE, active: activeId === 'RED_NOTE' }
     ];
   }, [invoiceData, activeId]);
 

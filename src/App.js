@@ -1,16 +1,24 @@
-import React, { useState } from 'react';
-import './styles/EInvoice.css';
-import TopBar from './components/TopBar';
-import Sidebar from './components/Sidebar';
+import React, { useCallback, useState } from 'react';
 import InvoiceContent from './components/InvoiceContent';
+import Sidebar from './components/Sidebar';
+import TopBar from './components/TopBar';
+import './styles/EInvoice.css';
 
 function App() {
   const [invoiceData, setInvoiceData] = useState([]);
   const [filterValues, setFilterValues] = useState({});
+  
+  // Remove unnecessary console.log that may cause extra renders
+  // console.log('invoiceData', invoiceData);
 
-  const handleFilterChange = (newFilters) => {
+  const handleFilterChange = useCallback((newFilters) => {
+    // console.log('newFilters', newFilters);
     setFilterValues(newFilters);
-  };
+  }, []);
+
+  const handleDataChange = useCallback((data) => {
+    setInvoiceData(data);
+  }, []);
 
   return (
     <div className="invoice-app">
@@ -22,7 +30,7 @@ function App() {
           filterValues={filterValues}
         />
         <InvoiceContent
-          onDataChange={setInvoiceData}
+          onDataChange={handleDataChange}
           filterValues={filterValues}
           onFilterChange={handleFilterChange}
         />

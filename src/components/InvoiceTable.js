@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from '@material-ui/core';
-import { Table, Popover, Tooltip } from 'antd';
-import StatusChip from './StatusChip';
-import PdfChip from './PdfChip';
+import { Table, Tooltip } from 'antd';
+import axios from 'axios';
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import FilterRow from './FilterRow';
+import PdfChip from './PdfChip';
+import StatusChip from './StatusChip';
 import { THEME } from './TopBar';
 
 // Helper function to determine status from API data
@@ -25,135 +26,41 @@ const mapApiToStatus = (item) => {
 
 // Function to transform API response data
 const transformInvoiceData = (apiData) => {
-  const invoiceMap = new Map();
-  // Fapiao type constants
-  const FAPIAO_TYPES = ['增值税专用发票', '普通发票'];
-
-  // First pass: group by InvoiceNum and create parent invoice objects
-  apiData.forEach(item => {
-    const invoiceNum = item.InvcHead_InvoiceNum;
-
-    if (!invoiceMap.has(invoiceNum)) {
-      // Calculate the invoice total amount from this first line item
-      // We'll add more line items to the total in the second pass
-      const amount = parseFloat(item.InvcDtl_DocExtPrice || 0);
-
-      // Randomly select a Fapiao type
-      const randomFapiaoType = FAPIAO_TYPES[Math.floor(Math.random() * FAPIAO_TYPES.length)];
-
-      invoiceMap.set(invoiceNum, {
-        id: invoiceNum,
-        postDate: new Date(item.OrderHed_OrderDate).toLocaleDateString(),
-        type: randomFapiaoType,
-        customerName: item.Customer_Name,
-        amount: amount,
-        comment: item.InvcHead_InvoiceComment || '',
-        status: mapApiToStatus(item),
-        hasPdf: false, // Assuming no PDF by default
-        orderNum: item.OrderHed_OrderNum,
-        poNum: item.OrderHed_PONum,
-        childs: [],
-        totalAmount: amount // Keep track of total amount
-      });
-    } else {
-      // If we see another line for the same invoice, add its amount to the total
-      const invoice = invoiceMap.get(invoiceNum);
-      const lineAmount = parseFloat(item.InvcDtl_DocExtPrice || 0);
-      invoice.totalAmount += lineAmount;
-    }
-  });
-
-  // Second pass: add line items to each invoice
-  apiData.forEach(item => {
-    const invoiceNum = item.InvcHead_InvoiceNum;
-    const invoice = invoiceMap.get(invoiceNum);
-
-    invoice.childs.push({
-      lineNo: invoice.childs.length + 1,
-      partNo: item.InvcDtl_CommodityCode || '',
-      description: item.InvcDtl_LineDesc,
-      qty: item.InvcDtl_SellingShipQty,
-      unitPrice: item.InvcDtl_DocUnitPrice,
-      subtotal: item.InvcDtl_DocExtPrice,
-      taxRate: item.InvcTax_Percent,
-      taxTotal: (parseFloat(item.InvcDtl_DocExtPrice) * parseFloat(item.InvcTax_Percent) / 100).toFixed(2),
-      uom: item.InvcDtl_SalesUM
-    });
-  });
-
-  // Update each invoice with the correct total amount
-  invoiceMap.forEach(invoice => {
-    invoice.amount = invoice.totalAmount; // Set the final calculated amount
-    delete invoice.totalAmount; // Remove the temporary tracking property
-  });
-
-  const retVal = Array.from(invoiceMap.values());
-  console.log('retVal', retVal);
-  return retVal;
+  return apiData.map(item => ({
+    id: item.erpInvoiceId.toString(),
+    postDate: item.orderDate ? new Date(item.orderDate).toLocaleDateString() : '--',
+    type: item.fapiaoType || '--',
+    customerName: item.customerName || '--',
+    amount: item.invoiceAmount || 0,
+    comment: item.invoiceComment || '',
+    status: item.status || 'PENDING',
+    hasPdf: !!item.eInvoicePdf,
+    orderNum: item.orderNumber,
+    poNum: item.poNumber,
+    einvoiceId: item.eInvoiceId,
+    einvoiceDate: item.eInvoiceDate ? new Date(item.eInvoiceDate).toLocaleDateString() : '--',
+    submittedBy: item.submittedBy,
+    invoiceDetails: item.invoiceDetails || [],
+  }));
 };
 
-// Function to construct OData filter query from filterValues
-const buildODataFilterQuery = (filterValues) => {
-  if (!filterValues || Object.keys(filterValues).length === 0) {
-    return '';
-  }
-
-  const filters = [];
-
-  // Map the filter fields to their corresponding OData fields
-  const fieldMappings = {
-    id: 'InvcHead_InvoiceNum',
-    customerName: 'Customer_Name',
-    amount: 'InvcDtl_DocExtPrice',
-    comment: 'InvcHead_InvoiceComment',
-    type: 'InvcDtl_LineDesc', // Assuming Fapiao Type maps to line description
-    postDate: 'OrderHed_OrderDate',
-    orderNum: 'OrderHed_OrderNum',
-    poNum: 'OrderHed_PONum',
-    einvoiceId: 'InvcHead_InvoiceNum', // Placeholder - adjust as needed
-    submittedBy: 'Customer_Name', // Placeholder - adjust as needed
-  };
-
-  Object.entries(filterValues).forEach(([key, value]) => {
-    if (value && value !== 'All' && fieldMappings[key]) {
-      const field = fieldMappings[key];
-
-      // Handle different filter types
-      if (key === 'postDate' || key === 'einvoiceDate') {
-        // For date fields, use datetime function to convert string to OData datetime
-        // Format: year-month-day
-        filters.push(`${field} eq datetime'${value}'`);
-      } else if (key === 'id' || key === 'einvoiceId' || key === 'orderNum') {
-        // Number filtering for IDs - use exact matches
-        if (!isNaN(value)) {
-          filters.push(`${field} eq ${value}`);
-        }
-      } else if (key === 'amount') {
-        // For amount, use exact match
-        if (!isNaN(value)) {
-          filters.push(`${field} eq ${value}`);
-        }
-      } else if (typeof value === 'string') {
-        // String filtering - 使用 indexof 函数实现模糊搜索
-        const escapedValue = value.replace(/'/g, "''");
-        filters.push(`indexof(tolower(${field}), '${escapedValue.toLowerCase()}') gt 0`);
-      } else if (key === 'hasPdf') {
-        // Boolean filtering
-        const boolValue = value ? 'true' : 'false';
-        filters.push(`HasPdf eq ${boolValue}`);
-      }
-    }
-  });
-
-  // Build the OData query string
-  let queryString = '';
-  if (filters.length > 0) {
-    // 使用encodeURIComponent对整个过滤字符串进行编码
-    const filterStr = filters.join(' and ');
-    queryString = `$filter=${encodeURIComponent(filterStr)}`;
-  }
-
-  return queryString;
+// Function to build query parameters for API request
+const buildApiQueryParams = (filterValues) => {
+  const params = new URLSearchParams();
+  
+  if (filterValues.page) params.append('page', filterValues.page);
+  if (filterValues.limit) params.append('limit', filterValues.limit);
+  
+  // 映射前端过滤字段到API参数
+  if (filterValues.id) params.append('erpInvoiceId', filterValues.id);
+  if (filterValues.customerName) params.append('customerName', filterValues.customerName);
+  if (filterValues.status) params.append('status', filterValues.status);
+  if (filterValues.einvoiceId) params.append('eInvoiceId', filterValues.einvoiceId);
+  if (filterValues.postDate) params.append('startDate', filterValues.postDate);
+  if (filterValues.type) params.append('fapiaoType', filterValues.type);
+  if (filterValues.submittedBy) params.append('submittedBy', filterValues.submittedBy);
+  
+  return params.toString();
 };
 
 // Smart tooltip component that only shows when text is truncated
@@ -185,14 +92,17 @@ const TruncatedCell = ({ text, className = 'cell-text', estimatedCharWidth = 8, 
   );
 };
 
-const InvoiceTable = ({ onDataChange, filterValues: externalFilterValues, onFilterChange }) => {
+const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterValues, onFilterChange, onSelectionChange }, ref) => {
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [showPopover, setShowPopover] = useState(false);
   const [errorInvoiceId, setErrorInvoiceId] = useState(null);
   const [expandedRowKeys, setExpandedRowKeys] = useState([]);
   const [filterValues, setFilterValues] = useState({}); // 使用组件内部的 filterValues 状态
   const [filteredData, setFilteredData] = useState([]);
-  const [allInvoiceData, setAllInvoiceData] = useState([]);
+  const [totalItems, setTotalItems] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [loading, setLoading] = useState(false);
   const [showFilterRow, setShowFilterRow] = useState(true);
 
   // 接收外部 filterValues 变化
@@ -202,75 +112,63 @@ const InvoiceTable = ({ onDataChange, filterValues: externalFilterValues, onFilt
     }
   }, [externalFilterValues]);
 
+  // Create fetchData function outside useEffect
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // 构建查询参数
+      const queryParams = buildApiQueryParams({
+        ...filterValues,
+        page: currentPage,
+        limit: pageSize
+      });
+      
+      // 直接使用完整的URL访问API
+      const url = `http://localhost:3000/api/invoice${queryParams ? `?${queryParams}` : ''}`;
+      console.log('Fetching data with URL:', url);
+
+      const response = await axios.get(url);
+
+      if (response.status !== 200) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const data = response.data;
+      console.log('API Response:', data);
+      
+      // 转换数据
+      const transformedData = transformInvoiceData(data.items);
+      setFilteredData(transformedData);
+      setTotalItems(data.total);
+      
+      // 调用数据变化回调
+      if (onDataChange) {
+        onDataChange({items: transformedData, total: data.total, totals: data.totals});
+      }
+    } catch (error) {
+      console.error('Error fetching invoice data:', error);
+      setFilteredData([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // 获取数据的 useEffect
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // 创建不包含 status 的过滤条件副本
-        const apiFilterValues = { ...filterValues };
-        delete apiFilterValues.status;
-
-        const filterQuery = buildODataFilterQuery(apiFilterValues);
-        const url = `https://simalfa.kineticcloud.cn/simalfaprod/api/v1/BaqSvc/InvReport(SIMALFA)${filterQuery ? `?${filterQuery}` : ''}`;
-
-        console.log('Fetching data with URL:', url);
-
-        const response = await fetch(url, {
-          headers: {
-            'Authorization': 'Basic bWFuYWdlcjo0V2slNkJu'
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error(`API error: ${response.status}`);
-        }
-
-        const data = await response.json();
-        const transformedData = transformInvoiceData(data.value);
-        console.log('transformedData', transformedData);
-
-        setAllInvoiceData(transformedData);
-
-        // 调用数据变化回调
-        if (onDataChange) {
-          onDataChange(transformedData);
-        }
-      } catch (error) {
-        console.error('Error fetching invoice data:', error);
-      }
-    };
-
     fetchData();
-  }, [filterValues, onDataChange]);
+  }, [filterValues, currentPage, pageSize]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 客户端状态过滤
-  useEffect(() => {
-
-
-    let dataToDisplay = [...allInvoiceData];
-
-    // 如果有状态过滤，应用状态过滤
-    if (filterValues.status && filterValues.status !== 'viewAll') {
-      // 将菜单ID映射到状态值
-      const statusMapping = {
-        'PENDING': 'PENDING',
-        'SUBMITTED': 'SUBMITTED',
-        'ERROR': 'ERROR',
-        'RED_NOTE': 'RED_NOTE'
-      };
-
-      const targetStatus = statusMapping[filterValues.status];
-      if (targetStatus) {
-        dataToDisplay = dataToDisplay.filter(item => item.status === targetStatus);
-      }
-    }
-
-    setFilteredData(dataToDisplay);
-  }, [allInvoiceData, filterValues.status]);
+  // Expose methods to parent component
+  useImperativeHandle(ref, () => ({
+    fetchData,
+    clearSelection: () => setSelectedRowKeys([])
+  }));
 
   // 处理过滤器变化
   const handleFilterChange = (newFilterValues) => {
     console.log('newFilterValues', newFilterValues);
+    // 重置到第一页
+    setCurrentPage(1);
     setFilterValues(newFilterValues);
 
     // 如果提供了外部过滤回调，调用它
@@ -282,11 +180,18 @@ const InvoiceTable = ({ onDataChange, filterValues: externalFilterValues, onFilt
   // 清除所有过滤器
   const handleClearFilters = () => {
     setFilterValues({});
+    setCurrentPage(1);
 
     // 如果提供了外部过滤回调，调用它
     if (onFilterChange) {
       onFilterChange({});
     }
+  };
+
+  // Handler for pagination change
+  const handlePaginationChange = (page, pageSize) => {
+    setCurrentPage(page);
+    setPageSize(pageSize);
   };
 
   // Handler for filter icon click to toggle filter row
@@ -297,18 +202,30 @@ const InvoiceTable = ({ onDataChange, filterValues: externalFilterValues, onFilt
   // Handler for row selection
   const rowSelection = {
     selectedRowKeys,
-    onChange: (selectedKeys) => {
+    onChange: (selectedKeys, selectedRows) => {
       setSelectedRowKeys(selectedKeys);
+      
+      // Call the onSelectionChange callback if provided
+      if (onSelectionChange) {
+        // Get the full data for selected invoices
+        const selectedInvoices = filteredData.filter(invoice => 
+          selectedKeys.includes(invoice.id)
+        );
+        console.log('selectedInvoices', selectedInvoices);
+        console.log('selectedKeys', selectedKeys);
+        onSelectionChange(selectedKeys, selectedInvoices);
+      }
     },
   };
 
   // Define expandable row content
   const expandedRowRender = (record) => {
-    if (!record.childs || record.childs.length === 0) {
-      return (
-        <div style={{ padding: '20px', backgroundColor: '#fafafa' }}>
-          <p><strong>详细信息：</strong> {record.id} - {record.customerName}</p>
-          <p><strong>备注：</strong> {record.comment}</p>
+    console.log('record', record);
+    if (!record.invoiceDetails || record.invoiceDetails.length === 0) {
+    return (
+      <div style={{ padding: '20px', backgroundColor: '#fafafa' }}>
+        <p><strong>详细信息：</strong> {record.id} - {record.customerName}</p>
+        <p><strong>备注：</strong> {record.comment}</p>
         </div>
       );
     }
@@ -323,38 +240,38 @@ const InvoiceTable = ({ onDataChange, filterValues: externalFilterValues, onFilt
       },
       {
         title: 'Description',
-        dataIndex: 'description',
-        key: 'description',
+        dataIndex: 'lineDescription',
+        key: 'lineDescription',
         width: 250,
       },
       {
         title: 'Qty',
-        dataIndex: 'qty',
-        key: 'qty',
+        dataIndex: 'sellingShipQty',
+        key: 'sellingShipQty',
         width: 80,
         align: 'right',
-        render: (text, record) => `${text} ${record.uom}`,
+        render: (text, record) => `${text} ${record.uomDescription}`,
       },
       {
         title: 'Unit Price',
-        dataIndex: 'unitPrice',
-        key: 'unitPrice',
+        dataIndex: 'docUnitPrice',
+        key: 'docUnitPrice',
         width: 120,
         align: 'right',
         render: (text) => `¥${parseFloat(text).toFixed(2)}`,
       },
       {
         title: 'Subtotal',
-        dataIndex: 'subtotal',
-        key: 'subtotal',
+        dataIndex: 'docExtPrice',
+        key: 'docExtPrice',
         width: 120,
         align: 'right',
         render: (text) => `¥${parseFloat(text).toFixed(2)}`,
       },
       {
         title: 'Tax Rate',
-        dataIndex: 'taxRate',
-        key: 'taxRate',
+        dataIndex: 'taxPercent',
+        key: 'taxPercent',
         width: 100,
         align: 'right',
         render: (text) => `${text}%`,
@@ -365,7 +282,10 @@ const InvoiceTable = ({ onDataChange, filterValues: externalFilterValues, onFilt
         key: 'taxTotal',
         width: 100,
         align: 'right',
-        render: (text) => `¥${text}`,
+        render: (text, record) => {
+          const taxAmount = (parseFloat(record.docExtPrice) * parseFloat(record.taxPercent) / 100).toFixed(2);
+          return `¥${taxAmount}`;
+        },
         className: 'highlighted-column',
       },
     ];
@@ -386,7 +306,7 @@ const InvoiceTable = ({ onDataChange, filterValues: externalFilterValues, onFilt
         </div>
         <Table
           columns={lineItemColumns}
-          dataSource={record.childs}
+          dataSource={record.invoiceDetails.map((item, index) => ({ ...item, lineNo: index + 1 }))}
           pagination={false}
           bordered
           size="small"
@@ -446,7 +366,7 @@ const InvoiceTable = ({ onDataChange, filterValues: externalFilterValues, onFilt
       className: 'cell cell-amount',
       width: 100,
       render: (text) => {
-        const formattedAmount = `¥${parseFloat(text).toFixed(2)}`;
+        const formattedAmount = text ? `¥${parseFloat(text).toFixed(2)}` : '--';
         return <TruncatedCell text={formattedAmount} />;
       },
     },
@@ -521,10 +441,7 @@ const InvoiceTable = ({ onDataChange, filterValues: externalFilterValues, onFilt
     expandable: {
       expandedRowRender,
       expandIcon: ({ expanded, onExpand, record, ...props }) => (
-        <div className="icon" onClick={e => {
-          console.log('onExpand', onExpand, props);
-          onExpand(record, e)
-        }}>
+        <div className="icon" onClick={e => onExpand(record, e)}>
           <Icon className="icon-grey icon-medium icon-light">
             {expanded ? 'indeterminate_check_box' : 'add_box'}
           </Icon>
@@ -532,9 +449,10 @@ const InvoiceTable = ({ onDataChange, filterValues: externalFilterValues, onFilt
       ),
       expandedRowKeys,
       onExpand: (expanded, record) => {
-        console.log('expanded', expanded);
-        console.log('record', record);
-        setExpandedRowKeys(expanded ? [...expandedRowKeys, record.id] : expandedRowKeys.filter(id => id !== record.id));
+        setExpandedRowKeys(expanded 
+          ? [...expandedRowKeys, record.id] 
+          : expandedRowKeys.filter(id => id !== record.id)
+        );
       }
     },
     rowClassName: (record, index) => {
@@ -544,14 +462,23 @@ const InvoiceTable = ({ onDataChange, filterValues: externalFilterValues, onFilt
     },
     dataSource: filteredData.map(item => ({ ...item, key: item.id })),
     columns: columns,
-    pagination: true,
+    pagination: {
+      current: currentPage,
+      pageSize: pageSize,
+      total: totalItems,
+      onChange: handlePaginationChange,
+      showSizeChanger: true,
+      showQuickJumper: true,
+      showTotal: (total) => `总计 ${total} 条记录`
+    },
     bordered: false,
     className: 'invoice-table-ant',
     size: 'middle',
     rowKey: 'id',
     tableLayout: 'fixed',
     showHeader: false,
-    style: { width: '100%' }
+    style: { width: '100%' },
+    loading: loading
   };
 
   return (
@@ -574,7 +501,7 @@ const InvoiceTable = ({ onDataChange, filterValues: externalFilterValues, onFilt
       </style>
       <div className="custom-table-header" style={{ backgroundColor: THEME.secondaryContainer }}>
         <div className="table-row">
-          <div className=" cell-expand" style={{ display: 'flex', flex: 48, minWidth: 0, justifyContent: 'center', alignItems: 'center' }}>
+          <div className="cell-expand" style={{ display: 'flex', flex: 48, minWidth: 0, justifyContent: 'center', alignItems: 'center' }}>
             <Icon
               className="icon-grey icon-medium icon-light"
               style={{ cursor: 'pointer' }}
@@ -632,25 +559,8 @@ const InvoiceTable = ({ onDataChange, filterValues: externalFilterValues, onFilt
       )}
 
       <Table {...tableConfig} />
-
-      {/* Error popover */}
-      {/* <Popover
-        content={(
-          <div>
-            <div className="popover-title">Duplicate Request</div>
-            <div className="popover-message">
-              A fapiao has already been issued for the same invoice.
-            </div>
-          </div>
-        )}
-        visible={showPopover && errorInvoiceId === 'ERP8240'}
-        onVisibleChange={(visible) => !visible && setShowPopover(false)}
-        overlayClassName="error-popover"
-        placement="top"
-        trigger="click"
-      /> */}
     </div>
   );
-};
+});
 
 export default InvoiceTable; 
