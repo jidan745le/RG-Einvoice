@@ -124,7 +124,7 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
       });
       
       // 直接使用完整的URL访问API
-      const url = `/e-invoice/api${queryParams ? `?${queryParams}` : ''}`;
+      const url = `/e-invoice/api/invoice${queryParams ? `?${queryParams}` : ''}`;
       console.log('Fetching data with URL:', url);
 
       const response = await axios.get(url);
