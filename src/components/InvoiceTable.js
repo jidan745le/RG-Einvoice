@@ -41,6 +41,7 @@ const transformInvoiceData = (apiData) => {
     einvoiceDate: item.eInvoiceDate ? new Date(item.eInvoiceDate).toLocaleDateString() : '--',
     submittedBy: item.submittedBy,
     invoiceDetails: item.invoiceDetails || [],
+    eInvoicePdf: item.eInvoicePdf,
   }));
 };
 
@@ -404,8 +405,8 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
       key: 'hasPdf',
       className: 'cell cell-pdf',
       width: 100,
-      render: (hasPdf) => (
-        hasPdf ? <PdfChip /> : <div className="cell-empty">--</div>
+      render: (hasPdf,record) => (
+        hasPdf ? <PdfChip record={record} /> : <div className="cell-empty">--</div>
       ),
     },
     {

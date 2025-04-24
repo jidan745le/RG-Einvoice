@@ -71,8 +71,8 @@ module.exports = (env, argv) => {
       },
       proxy: [
         {
-          context: ['/api'],
-          target: 'http://localhost:3003',
+          context: ['/e-invoice/api'],
+          target: 'http://8.219.189.158:81',
           changeOrigin: true,
         }
       ]
