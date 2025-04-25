@@ -48,10 +48,10 @@ const transformInvoiceData = (apiData) => {
 // Function to build query parameters for API request
 const buildApiQueryParams = (filterValues) => {
   const params = new URLSearchParams();
-  
+
   if (filterValues.page) params.append('page', filterValues.page);
   if (filterValues.limit) params.append('limit', filterValues.limit);
-  
+
   // 映射前端过滤字段到API参数
   if (filterValues.id) params.append('erpInvoiceId', filterValues.id);
   if (filterValues.customerName) params.append('customerName', filterValues.customerName);
@@ -60,7 +60,7 @@ const buildApiQueryParams = (filterValues) => {
   if (filterValues.postDate) params.append('startDate', filterValues.postDate);
   if (filterValues.type) params.append('fapiaoType', filterValues.type);
   if (filterValues.submittedBy) params.append('submittedBy', filterValues.submittedBy);
-  
+
   return params.toString();
 };
 
@@ -123,7 +123,7 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
         page: currentPage,
         limit: pageSize
       });
-      
+
       // 直接使用完整的URL访问API
       const url = `/e-invoice/api/invoice${queryParams ? `?${queryParams}` : ''}`;
       console.log('Fetching data with URL:', url);
@@ -136,15 +136,15 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
 
       const data = response.data;
       console.log('API Response:', data);
-      
+
       // 转换数据
       const transformedData = transformInvoiceData(data.items);
       setFilteredData(transformedData);
       setTotalItems(data.total);
-      
+
       // 调用数据变化回调
       if (onDataChange) {
-        onDataChange({items: transformedData, total: data.total, totals: data.totals});
+        onDataChange({ items: transformedData, total: data.total, totals: data.totals });
       }
     } catch (error) {
       console.error('Error fetching invoice data:', error);
@@ -205,11 +205,11 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
     selectedRowKeys,
     onChange: (selectedKeys, selectedRows) => {
       setSelectedRowKeys(selectedKeys);
-      
+
       // Call the onSelectionChange callback if provided
       if (onSelectionChange) {
         // Get the full data for selected invoices
-        const selectedInvoices = filteredData.filter(invoice => 
+        const selectedInvoices = filteredData.filter(invoice =>
           selectedKeys.includes(invoice.id)
         );
         console.log('selectedInvoices', selectedInvoices);
@@ -223,10 +223,10 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
   const expandedRowRender = (record) => {
     console.log('record', record);
     if (!record.invoiceDetails || record.invoiceDetails.length === 0) {
-    return (
-      <div style={{ padding: '20px', backgroundColor: '#fafafa' }}>
-        <p><strong>详细信息：</strong> {record.id} - {record.customerName}</p>
-        <p><strong>备注：</strong> {record.comment}</p>
+      return (
+        <div style={{ padding: '20px', backgroundColor: '#fafafa' }}>
+          <p><strong>详细信息：</strong> {record.id} - {record.customerName}</p>
+          <p><strong>备注：</strong> {record.comment}</p>
         </div>
       );
     }
@@ -357,7 +357,7 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
       dataIndex: 'customerName',
       key: 'customerName',
       className: 'cell cell-customer',
-      width: 100,
+      width: 180,
       render: (text) => <TruncatedCell text={text} />,
     },
     {
@@ -384,7 +384,7 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
       dataIndex: 'status',
       key: 'status',
       className: 'cell cell-status',
-      width: 100,
+      width: 120,
       render: (text, record) => (
         <div onClick={() => text === 'ERROR' && handleErrorClick(record.id)}>
           <StatusChip status={text} />
@@ -405,7 +405,7 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
       key: 'hasPdf',
       className: 'cell cell-pdf',
       width: 100,
-      render: (hasPdf,record) => (
+      render: (hasPdf, record) => (
         hasPdf ? <PdfChip record={record} /> : <div className="cell-empty">--</div>
       ),
     },
@@ -450,8 +450,8 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
       ),
       expandedRowKeys,
       onExpand: (expanded, record) => {
-        setExpandedRowKeys(expanded 
-          ? [...expandedRowKeys, record.id] 
+        setExpandedRowKeys(expanded
+          ? [...expandedRowKeys, record.id]
           : expandedRowKeys.filter(id => id !== record.id)
         );
       }
@@ -515,7 +515,12 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
           <div className="cell-checkbox" style={{ display: 'flex', flex: 32, minWidth: 0, justifyContent: 'center', alignItems: 'center' }}>
             <input style={{ width: '16px', height: '16px' }} type="checkbox" title="Select all rows" />
           </div>
-          <div className="header-cell cell-date">
+          {columns.map(column => (
+            <div className={"header-cell cell-" + column.key} style={{ flex: column.width }}>
+              <div className="cell-header-text" title={column.title}>{column.title}</div>
+            </div>
+          ))}
+          {/* <div className="header-cell cell-date">
             <div className="cell-header-text" title="Date when invoice was posted">Post Date</div>
           </div>
           <div className="header-cell cell-id">
@@ -547,12 +552,13 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
           </div>
           <div className="header-cell cell-submitted-by">
             <div className="cell-header-text" title="Person who submitted the electronic invoice">E-Invoice Submitted By</div>
-          </div>
+          </div> */}
         </div>
       </div>
 
       {showFilterRow && (
         <FilterRow
+          columns={columns}
           filterValues={filterValues}
           onFilterChange={handleFilterChange}
           onClearFilters={handleClearFilters}

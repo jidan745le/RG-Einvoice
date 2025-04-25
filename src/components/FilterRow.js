@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
 import { Icon } from '@material-ui/core';
-import PropTypes from 'prop-types';
-import { Input, Select, DatePicker } from 'antd';
-import moment from 'moment';
+import { DatePicker, Input, Select } from 'antd';
 import { debounce } from 'lodash';
+import moment from 'moment';
+import PropTypes from 'prop-types';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 const { Option } = Select;
 
@@ -16,7 +16,7 @@ const { Option } = Select;
  * @param {Function} props.onClearFilters - 清除所有过滤条件的回调函数
  * @returns {JSX.Element} 过滤行组件
  */
-const FilterRow = ({ onFilterChange, filterValues = {}, onClearFilters }) => {
+const FilterRow = ({ onFilterChange, filterValues = {}, onClearFilters, columns }) => {
   // Local state for immediate input values (before debounce)
   const [localFilterValues, setLocalFilterValues] = useState(filterValues);
 
@@ -85,6 +85,134 @@ const FilterRow = ({ onFilterChange, filterValues = {}, onClearFilters }) => {
     }
   };
 
+  const filterFields = useMemo(() => {
+    const components = [
+      <DatePicker
+        placeholder="Post Date"
+        value={localFilterValues.postDate ? moment(localFilterValues.postDate.split('T')[0]) : null}
+        onChange={(date, dateString) => handleDateChange(date, dateString, 'postDate')}
+        style={{ width: '80%' }}
+        size="small"
+        format="YYYY-MM-DD"
+        title="Filter by post date"
+      />, <Input
+        placeholder="ERP Invoice ID"
+        style={{ width: '80%' }}
+        value={localFilterValues.id}
+        onChange={(e) => handleFilterChange('id', e.target.value)}
+        size="small"
+        allowClear
+        title="Filter by invoice ID"
+      />,
+      <Select
+        placeholder="Fapiao Type"
+        value={localFilterValues.type}
+        onChange={(value) => handleFilterChange('type', value)}
+        style={{ width: '80%' }}
+        size="small"
+        allowClear
+        title="Filter by fapiao type"
+      >
+        <Option value="增值税专用发票">增值税专用发票</Option>
+        <Option value="普通发票">普通发票</Option>
+      </Select>,
+      <Input
+        placeholder="Customer Name"
+        style={{ width: '80%' }}
+        value={localFilterValues.customerName}
+        onChange={(e) => handleFilterChange('customerName', e.target.value)}
+        size="small"
+        allowClear
+        title="Filter by customer name"
+      />,
+      <Input
+        placeholder="Invoice Amount"
+        style={{ width: '80%' }}
+        value={localFilterValues.amount}
+        onChange={(e) => handleFilterChange('amount', e.target.value)}
+        size="small"
+        allowClear
+        type="number"
+        title="Filter by exact amount"
+      />, <Input
+        placeholder="Comment"
+        style={{ width: '80%' }}
+        value={localFilterValues.comment}
+        onChange={(e) => handleFilterChange('comment', e.target.value)}
+        size="small"
+        allowClear
+        title="Filter by comment text"
+      />,
+
+
+      <Select
+        placeholder="Status"
+        value={localFilterValues.status}
+        onChange={(value) => handleFilterChange('status', value)}
+        style={{ width: '80%' }}
+        size="small"
+        allowClear
+        title="Filter by invoice status"
+      >
+        <Option value="SUBMITTED">Submitted</Option>
+        <Option value="PENDING">Pending</Option>
+        <Option value="ERROR">Error</Option>
+        <Option value="RED_NOTE">Red Note</Option>
+      </Select>,
+
+      <Input
+        placeholder="E-Invoice ID"
+        style={{ width: '80%' }}
+        value={localFilterValues.einvoiceId}
+        onChange={(e) => handleFilterChange('einvoiceId', e.target.value)}
+        size="small"
+        allowClear
+        title="Filter by e-invoice ID"
+      />,
+
+
+      <Select
+        placeholder="E-Invoice PDF"
+        value={localFilterValues.hasPdf === undefined ? undefined : String(localFilterValues.hasPdf)}
+        onChange={(value) => handleFilterChange('hasPdf', value === undefined ? undefined : value === 'true')}
+        style={{ width: '80%' }}
+        size="small"
+        allowClear
+        title="Filter by PDF availability"
+      >
+        <Option value="true">Yes</Option>
+        <Option value="false">No</Option>
+      </Select>,
+
+      <DatePicker
+        placeholder="E-Invoice Date"
+        value={localFilterValues.einvoiceDate ? moment(localFilterValues.einvoiceDate.split('T')[0]) : null}
+        onChange={(date, dateString) => handleDateChange(date, dateString, 'einvoiceDate')}
+        style={{ width: '80%' }}
+        size="small"
+        format="YYYY-MM-DD"
+        title="Filter by e-invoice date"
+      />,
+      <Input
+        placeholder="E-Invoice Submitted By"
+        style={{ width: '80%' }}
+        value={localFilterValues.submittedBy}
+        onChange={(e) => handleFilterChange('submittedBy', e.target.value)}
+        size="small"
+        allowClear
+        title="Filter by submission user"
+      />
+    ]
+    return columns.map((column, index) => {
+      return {
+        key: column.key,
+        title: column.title,
+        width: column.width,
+        component: components[index]
+      }
+    })
+  }, [])
+
   return (
     <div className="filter-row">
       <div className="table-row">
@@ -99,20 +227,16 @@ const FilterRow = ({ onFilterChange, filterValues = {}, onClearFilters }) => {
             <Icon className="icon-grey icon-medium icon-light">cancel</Icon>
           </div>
         </div>
+        {
+          filterFields.map(item => {
+            return <div style={{ flex: item.width }} className="filter-cell">
+              {item.component}
+            </div>
+          })
+        }
 
-        <div className="cell-date filter-cell">
-          <DatePicker
-            placeholder="Post Date"
-            value={localFilterValues.postDate ? moment(localFilterValues.postDate.split('T')[0]) : null}
-            onChange={(date, dateString) => handleDateChange(date, dateString, 'postDate')}
-            style={{ width: '80%' }}
-            size="small"
-            format="YYYY-MM-DD"
-            title="Filter by post date"
-          />
-        </div>
 
-        <div className="cell-id filter-cell">
+        {/* <div className="cell-id filter-cell">
           <Input
             placeholder="ERP Invoice ID"
             style={{ width: '80%' }}
@@ -242,7 +366,7 @@ const FilterRow = ({ onFilterChange, filterValues = {}, onClearFilters }) => {
             allowClear
             title="Filter by submission user"
           />
-        </div>
+        </div> */}
       </div>
     </div>
   );
