@@ -482,6 +482,32 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
     loading: loading
   };
 
+  // Handler for select all checkbox
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      // Select all visible rows
+      const currentPageIds = filteredData.map(item => item.id);
+      setSelectedRowKeys(currentPageIds);
+
+      // Call the onSelectionChange callback if provided
+      if (onSelectionChange) {
+        onSelectionChange(currentPageIds, filteredData);
+      }
+    } else {
+      // Deselect all
+      setSelectedRowKeys([]);
+
+      // Call the onSelectionChange callback if provided
+      if (onSelectionChange) {
+        onSelectionChange([], []);
+      }
+    }
+  };
+
+  // Check if all current page items are selected
+  const allSelected = filteredData.length > 0 &&
+    filteredData.every(item => selectedRowKeys.includes(item.id));
+
   return (
     <div>
       <style>
@@ -498,6 +524,50 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
           .invoice-table-ant .ant-table-row-selected > td {
             background-color: #FFF3E5 !important;
           }
+
+          .invoice-table-ant .ant-checkbox-checked .ant-checkbox-inner {
+            background-color: ${THEME.primary} !important;
+            border-color: ${THEME.primary} !important;
+          }
+
+          .invoice-table-ant .ant-pagination-item-active {
+            border-color: ${THEME.primary} !important;
+          }
+
+          .invoice-table-ant .ant-pagination-item-active a {
+            color: ${THEME.primary} !important;
+          }
+           
+          .custom-checkbox {
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border: 1px solid #d9d9d9;
+            border-radius: 2px;
+            position: relative;
+            cursor: pointer;
+            background-color: #fff;
+            transition: all 0.2s;
+            outline: none;
+          }
+           
+          .custom-checkbox:checked {
+            background-color: ${THEME.primary};
+            border-color: ${THEME.primary};
+          }
+           
+          .custom-checkbox:checked:after {
+            content: '';
+            position: absolute;
+            left: 4px;
+            top: 1px;
+            width: 6px;
+            height: 9px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+            display: block;
+          }
         `}
       </style>
       <div className="custom-table-header" style={{ backgroundColor: THEME.secondaryContainer }}>
@@ -513,46 +583,25 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
             </Icon>
           </div>
           <div className="cell-checkbox" style={{ display: 'flex', flex: 32, minWidth: 0, justifyContent: 'center', alignItems: 'center' }}>
-            <input style={{ width: '16px', height: '16px' }} type="checkbox" title="Select all rows" />
+            <input
+              type="checkbox"
+              title="Select all rows"
+              checked={allSelected}
+              onChange={handleSelectAll}
+              className="custom-checkbox"
+              style={{
+                width: '16px',
+                height: '16px',
+                backgroundColor: allSelected ? THEME.primary : '#fff',
+                borderColor: allSelected ? THEME.primary : '#d9d9d9'
+              }}
+            />
           </div>
           {columns.map(column => (
             <div className={"header-cell cell-" + column.key} style={{ flex: column.width }}>
               <div className="cell-header-text" title={column.title}>{column.title}</div>
             </div>
           ))}
-          {/* <div className="header-cell cell-date">
-            <div className="cell-header-text" title="Date when invoice was posted">Post Date</div>
-          </div>
-          <div className="header-cell cell-id">
-            <div className="cell-header-text" title="ERP system invoice identifier">ERP Invoice ID</div>
-          </div>
-          <div className="header-cell cell-type">
-            <div className="cell-header-text" title="Type of fapiao document">Fapiao Type</div>
-          </div>
-          <div className="header-cell cell-customer">
-            <div className="cell-header-text" title="Name of the customer">Customer Name</div>
-          </div>
-          <div className="header-cell cell-amount">
-            <div className="cell-header-text" title="Total invoice amount">Invoice Amount</div>
-          </div>
-          <div className="header-cell cell-comment">
-            <div className="cell-header-text" title="Additional notes about the invoice">Comment</div>
-          </div>
-          <div className="header-cell cell-status">
-            <div className="cell-header-text" title="Current status of the invoice">Status</div>
-          </div>
-          <div className="header-cell cell-einvoice-id">
-            <div className="cell-header-text" title="Electronic invoice identifier">E-Invoice ID</div>
-          </div>
-          <div className="header-cell cell-pdf">
-            <div className="cell-header-text" title="PDF document availability">E-Invoice PDF</div>
-          </div>
-          <div className="header-cell cell-einvoice-date">
-            <div className="cell-header-text" title="Date of electronic invoice issuance">E-Invoice Date</div>
-          </div>
-          <div className="header-cell cell-submitted-by">
-            <div className="cell-header-text" title="Person who submitted the electronic invoice">E-Invoice Submitted By</div>
-          </div> */}
         </div>
       </div>
 
