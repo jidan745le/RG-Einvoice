@@ -387,7 +387,7 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
       dataIndex: 'status',
       key: 'status',
       className: 'cell cell-status',
-      width: 120,
+      width: 100,
       render: (text, record) => (
         <div onClick={() => text === 'ERROR' && handleErrorClick(record.id)}>
           <StatusChip status={text} />
@@ -399,7 +399,7 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
       dataIndex: 'einvoiceId',
       key: 'einvoiceId',
       className: 'cell cell-einvoice-id',
-      width: 150,
+      width: 120,
       render: (text) => text ? <TruncatedCell text={text} /> : <div className="cell-empty">--</div>,
     },
     {
