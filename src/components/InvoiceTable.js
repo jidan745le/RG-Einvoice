@@ -342,7 +342,10 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
       key: 'id',
       className: 'cell cell-id',
       width: 100,
-      render: (text) => <TruncatedCell text={text} className="cell-text cell-link" />,
+      render: (text) => {
+        const url = `https://simalfa.kineticcloud.cn/SIMALFAProd/Apps/Erp/Home/#/view/OMGO3010/Erp.UI.ARInvoiceTracker?channelid=12389eab-5d7a-4288-8621-30a9741c3a24&layerVersion=0&baseAppVersion=0&company=SIMALFA&site=MfgSys&pageId=Details&KeyFields.InvoiceNum=${text}&pageChanged=true`;
+        return <a href={url} target="_blank" rel="noopener noreferrer"><TruncatedCell text={text} className="cell-text cell-link" /></a>;
+      },
     },
     {
       title: 'Fapiao Type',
@@ -396,7 +399,7 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
       dataIndex: 'einvoiceId',
       key: 'einvoiceId',
       className: 'cell cell-einvoice-id',
-      width: 100,
+      width: 150,
       render: (text) => text ? <TruncatedCell text={text} /> : <div className="cell-empty">--</div>,
     },
     {
@@ -605,14 +608,15 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
         </div>
       </div>
 
-      {showFilterRow && (
-        <FilterRow
-          columns={columns}
-          filterValues={filterValues}
-          onFilterChange={handleFilterChange}
-          onClearFilters={handleClearFilters}
-        />
-      )}
+
+      <FilterRow
+        showFilterRow={showFilterRow}
+        columns={columns}
+        filterValues={filterValues}
+        onFilterChange={handleFilterChange}
+        onClearFilters={handleClearFilters}
+      />
+
 
       <Table {...tableConfig} />
     </div>

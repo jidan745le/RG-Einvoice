@@ -16,7 +16,7 @@ const { Option } = Select;
  * @param {Function} props.onClearFilters - 清除所有过滤条件的回调函数
  * @returns {JSX.Element} 过滤行组件
  */
-const FilterRow = ({ onFilterChange, filterValues = {}, onClearFilters, columns }) => {
+const FilterRow = ({ onFilterChange, filterValues = {}, onClearFilters, columns, showFilterRow }) => {
   // Local state for immediate input values (before debounce)
   const [localFilterValues, setLocalFilterValues] = useState(filterValues);
 
@@ -214,7 +214,7 @@ const FilterRow = ({ onFilterChange, filterValues = {}, onClearFilters, columns 
   }, [])
 
   return (
-    <div className="filter-row">
+    <div style={{ display: showFilterRow ? 'flex' : 'none' }} className="filter-row">
       <div className="table-row">
         <div style={{ display: 'flex', flex: 48, minWidth: 0, justifyContent: 'center', alignItems: 'center' }} className="cell cell-checkbox">
           <div className="icon">
