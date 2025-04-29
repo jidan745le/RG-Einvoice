@@ -1,7 +1,7 @@
 import { Icon } from '@material-ui/core';
 import { Table, Tooltip } from 'antd';
-import axios from 'axios';
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import axiosInstance from '../utils/axiosConfig';
 import FilterRow from './FilterRow';
 import PdfChip from './PdfChip';
 import StatusChip from './StatusChip';
@@ -105,9 +105,13 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
   const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(false);
   const [showFilterRow, setShowFilterRow] = useState(true);
+  const didMountRef = useRef(false);
 
-  // 接收外部 filterValues 变化
   useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return; // 跳过第一次
+    }
     if (externalFilterValues) {
       setFilterValues(externalFilterValues);
     }
@@ -124,11 +128,11 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
         limit: pageSize
       });
 
-      // 直接使用完整的URL访问API
-      const url = `/e-invoice/api/invoice${queryParams ? `?${queryParams}` : ''}`;
+      // 使用 axiosInstance 替代 axios
+      const url = `/invoice${queryParams ? `?${queryParams}` : ''}`;
       console.log('Fetching data with URL:', url);
 
-      const response = await axios.get(url);
+      const response = await axiosInstance.get(url);
 
       if (response.status !== 200) {
         throw new Error(`API error: ${response.status}`);
@@ -156,6 +160,7 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
 
   // 获取数据的 useEffect
   useEffect(() => {
+    console.log('filterValues', filterValues);
     fetchData();
   }, [filterValues, currentPage, pageSize]); // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -1,9 +1,9 @@
 import { Icon } from '@material-ui/core';
 import { Button, message, Tooltip } from 'antd';
-import axios from 'axios';
 import React from 'react';
+import axiosInstance from '../utils/axiosConfig';
 
-const ActionBar = ({ selectedInvoices = [], onRefresh }) => {
+const ActionBar = ({ selectedInvoices = [], onRefresh, currentStatus }) => {
   // Check if all selected invoices have status 'PENDING'
   const allPending = selectedInvoices.length > 0 &&
     selectedInvoices.every(invoice => invoice.status === 'PENDING');
@@ -11,6 +11,12 @@ const ActionBar = ({ selectedInvoices = [], onRefresh }) => {
   // Check if all selected invoices have status 'SUBMITTED'
   const allSubmitted = selectedInvoices.length > 0 &&
     selectedInvoices.every(invoice => invoice.status === 'SUBMITTED');
+
+  // Check if all selected invoices are from the same customer (for merge button)
+  const sameCustomer = selectedInvoices.length > 0 &&
+    selectedInvoices.every(invoice =>
+      invoice.customerName === selectedInvoices[0].customerName
+    );
 
   // Button style based on the original action-button class
   const buttonStyle = {
@@ -45,14 +51,7 @@ const ActionBar = ({ selectedInvoices = [], onRefresh }) => {
 
       // Submit each invoice in sequence
       for (const invoice of selectedInvoices) {
-        const response = await axios.post(`/e-invoice/api/invoice/${invoice.id}/submit`, 
-          { submittedBy },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-            }
-          }
-        );
+        const response = await axiosInstance.post(`/invoice/${invoice.id}/submit`, { submittedBy });
         console.log(response);
 
         if (response.status !== 200) {
@@ -64,7 +63,7 @@ const ActionBar = ({ selectedInvoices = [], onRefresh }) => {
       if (allSuccessful) {
         // Show success message
         message.success(`Successfully submitted ${selectedInvoices.length} invoice(s)`);
-        
+
         // Refresh the data by calling the onRefresh function if provided
         if (typeof onRefresh === 'function') {
           onRefresh();
@@ -76,41 +75,51 @@ const ActionBar = ({ selectedInvoices = [], onRefresh }) => {
     }
   };
 
+  console.log("currentStatus", currentStatus);
+
   return (
     <div className="action-bar">
       <div className="action-group">
-        <Tooltip title={!allPending ? "Only pending invoices can be merged" : ""}>
-          <Button
-            style={buttonStyle}
-            disabled={!allPending}
-            icon={<Icon className={allPending ? "icon-medium" : "icon-lightgrey icon-medium icon-light"}>merge</Icon>}
-          >
-            Merge
-          </Button>
-        </Tooltip>
 
-        <Tooltip title={!allPending ? "Only pending invoices can be submitted" : ""}>
-          <Button
-            style={buttonStyle}
-            disabled={!allPending}
-            onClick={() => {
-              handleSubmit();
-            }}
-            icon={<Icon className={allPending ? "icon-medium" : "icon-lightgrey icon-medium icon-light"}>api</Icon>}
-          >
-            Submit
-          </Button>
-        </Tooltip>
+        <>
+          {(!currentStatus || currentStatus === 'PENDING' || currentStatus === 'ERROR') && (
+            <Tooltip title={!sameCustomer ? "All invoices must be from the same customer to merge" : ""}>
+              <Button
+                style={buttonStyle}
+                disabled={!sameCustomer || !allPending}
+                icon={<Icon className={(sameCustomer && allPending) ? "icon-medium" : "icon-lightgrey icon-medium icon-light"}>merge</Icon>}
+              >
+                Merge
+              </Button>
+            </Tooltip>
+          )}
 
-        <Tooltip title={!allSubmitted ? "Only submitted invoices can be marked as Red Note" : ""}>
-          <Button
-            style={buttonStyle}
-            disabled={!allSubmitted}
-            icon={<Icon className={allSubmitted ? "icon-medium" : "icon-lightgrey icon-medium icon-light"}>block</Icon>}
-          >
-            Red Note
-          </Button>
-        </Tooltip>
+          {(!currentStatus || currentStatus === 'PENDING' || currentStatus === 'ERROR') && (
+            <Button
+              style={buttonStyle}
+              disabled={!allPending}
+              onClick={() => {
+                handleSubmit();
+              }}
+              icon={<Icon className={allPending ? "icon-medium" : "icon-lightgrey icon-medium icon-light"}>api</Icon>}
+            >
+              Submit
+            </Button>
+          )}
+
+          {(!currentStatus || currentStatus === 'SUBMITTED') && (
+            <Button
+              style={buttonStyle}
+              disabled={!allSubmitted}
+              icon={<Icon className={allSubmitted ? "icon-medium" : "icon-lightgrey icon-medium icon-light"}>block</Icon>}
+            >
+              Red Note
+            </Button>
+          )}
+        </>
+
+
+
       </div>
 
       <div className="action-group">
