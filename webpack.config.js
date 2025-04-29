@@ -3,7 +3,7 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = (env, argv) => {
   const isProduction = argv.mode === 'production';
-  
+
   return {
     entry: './src/index.js',
     output: {
@@ -71,9 +71,11 @@ module.exports = (env, argv) => {
       },
       proxy: [
         {
-          context: ['/e-invoice/api'],
-          target: 'http://8.219.189.158:81',
+          context: ['/e-invoice'],
+          // target: 'http://8.219.189.158:81',
+          target: 'http://localhost:3003',
           changeOrigin: true,
+          pathRewrite: (path) => path.replace(/^\/e-invoice\/api/, '')
         }
       ]
     }

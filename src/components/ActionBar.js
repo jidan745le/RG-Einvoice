@@ -75,6 +75,34 @@ const ActionBar = ({ selectedInvoices = [], onRefresh, currentStatus }) => {
     }
   };
 
+  // Handle export action for invoices
+  const handleExport = async () => {
+    if (!allPending || selectedInvoices.length === 0) return;
+    try {
+      const epicorIds = selectedInvoices.map(inv => inv.id);
+      const response = await axiosInstance.post(
+        '/excel/export',
+        { epicorIds },
+        { responseType: 'blob' }
+      );
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'invoice_export.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      message.success('导出成功');
+    } catch (error) {
+      console.error('导出失败', error);
+      message.error('导出失败，请重试');
+    }
+  };
+
   console.log("currentStatus", currentStatus);
 
   return (
@@ -125,7 +153,9 @@ const ActionBar = ({ selectedInvoices = [], onRefresh, currentStatus }) => {
       <div className="action-group">
         <Button
           style={buttonStyle}
-          icon={<Icon className="icon-medium">table</Icon>}
+          disabled={!allPending}
+          onClick={handleExport}
+          icon={<Icon className={allPending ? "icon-medium" : "icon-lightgrey icon-medium icon-light"}>table</Icon>}
         >
           Export
         </Button>
