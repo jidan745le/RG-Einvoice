@@ -35,6 +35,7 @@ axiosInstance.interceptors.response.use(
     },
     (error) => {
         if (error.response && error.response.status === 401) {
+            localStorage.removeItem('authToken');
             const currentUrl = window.location.href;
             // Redirect to home page
             window.location.href = '/?returnUrl=' + encodeURIComponent(currentUrl);
