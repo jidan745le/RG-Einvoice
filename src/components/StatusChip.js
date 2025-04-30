@@ -1,5 +1,5 @@
-import React from 'react';
 import { Icon } from '@material-ui/core';
+import React from 'react';
 
 const StatusChip = ({ status }) => {
   // Configure the chip based on status
@@ -46,7 +46,7 @@ const StatusChip = ({ status }) => {
   const config = getChipConfig();
 
   return (
-    <div className={config.className}>
+    <div className={config.className} style={{ cursor: 'default' }}>
       {config.icon && (
         <div className="icon">
           <Icon className="icon-small">{config.icon}</Icon>

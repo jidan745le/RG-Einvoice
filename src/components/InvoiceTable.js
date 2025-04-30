@@ -394,13 +394,19 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
       key: 'status',
       className: 'cell cell-status',
       width: 100,
-      render: (text, record) => (
-        <div onClick={() => text === 'ERROR' && handleErrorClick(record.id)}>
-          {record.comment ? <Tooltip title={record.comment}>
+      render: (text, record) => {
+        return <div onClick={() => text === 'ERROR' && handleErrorClick(record.id)}>
+          {record.comment ?
+            <Tooltip title={record.comment} placement="top" >
+              <div>
+                <StatusChip status={text} />
+              </div>
+            </Tooltip>
+            :
             <StatusChip status={text} />
-          </Tooltip> : <StatusChip status={text} />}
+          }
         </div>
-      ),
+      },
     },
     {
       title: 'E-Invoice ID',
