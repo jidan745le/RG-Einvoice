@@ -131,6 +131,32 @@ const ActionBar = ({ selectedInvoices = [], onRefresh, currentStatus }) => {
     }
   };
 
+  const handleMerge = async () => {
+    if (!sameCustomer || !allPending || selectedInvoices.length === 0) return;
+
+    try {
+      const submittedBy = localStorage.getItem('username') || 'current_user';
+      const erpInvoiceIds = selectedInvoices.map(invoice => invoice.id);
+
+      const response = await axiosInstance.post('/invoice/merge', {
+        erpInvoiceIds,
+        submittedBy
+      });
+
+      if (response.status === 200) {
+        message.success(`Successfully merged ${selectedInvoices.length} invoice(s)`);
+        if (typeof onRefresh === 'function') {
+          onRefresh();
+        }
+      } else {
+        message.error('Failed to merge invoices');
+      }
+    } catch (error) {
+      console.error('Error merging invoices:', error);
+      message.error(`Error merging invoices: ${error?.response?.data?.error || error.message}`);
+    }
+  };
+
   console.log("currentStatus", currentStatus);
 
   return (
@@ -143,6 +169,7 @@ const ActionBar = ({ selectedInvoices = [], onRefresh, currentStatus }) => {
               <Button
                 style={buttonStyle}
                 disabled={!sameCustomer || !allPending}
+                onClick={handleMerge}
                 icon={<Icon className={(sameCustomer && allPending) ? "icon-medium" : "icon-lightgrey icon-medium icon-light"}>merge</Icon>}
               >
                 Merge
