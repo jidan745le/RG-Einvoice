@@ -103,6 +103,34 @@ const ActionBar = ({ selectedInvoices = [], onRefresh, currentStatus }) => {
     }
   };
 
+  const handleRedNote = async () => {
+    if (!allSubmitted || selectedInvoices.length === 0) return;
+
+    try {
+      const submittedBy = localStorage.getItem('username') || 'current_user';
+      let allSuccessful = true;
+
+      for (const invoice of selectedInvoices) {
+        const response = await axiosInstance.post(`/invoice/${invoice.id}/red`, { submittedBy });
+
+        if (response.status !== 200) {
+          allSuccessful = false;
+          message.error(`Failed to submit red note for invoice ${invoice.id}`);
+        }
+      }
+
+      if (allSuccessful) {
+        message.success(`Successfully submitted red note for ${selectedInvoices.length} invoice(s)`);
+        if (typeof onRefresh === 'function') {
+          onRefresh();
+        }
+      }
+    } catch (error) {
+      console.error('Error submitting red note:', error);
+      message.error(`Error submitting red note: ${error?.response?.data?.error}`);
+    }
+  };
+
   console.log("currentStatus", currentStatus);
 
   return (
@@ -139,6 +167,7 @@ const ActionBar = ({ selectedInvoices = [], onRefresh, currentStatus }) => {
             <Button
               style={buttonStyle}
               disabled={!allSubmitted}
+              onClick={handleRedNote}
               icon={<Icon className={allSubmitted ? "icon-medium" : "icon-lightgrey icon-medium icon-light"}>block</Icon>}
             >
               Red Note
