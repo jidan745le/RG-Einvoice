@@ -32,8 +32,8 @@ const transformInvoiceData = (apiData) => {
     type: item.fapiaoType || '--',
     customerName: item.customerName || '--',
     amount: item.invoiceAmount || 0,
-    comment: item.invoiceComment || '',
-    status: item.status || 'PENDING',
+    invoiceComment: item.invoiceComment || '',
+    status: item.status,
     hasPdf: !!item.eInvoicePdf,
     orderNum: item.orderNumber,
     poNum: item.poNumber,
@@ -42,6 +42,7 @@ const transformInvoiceData = (apiData) => {
     submittedBy: item.submittedBy,
     invoiceDetails: item.invoiceDetails || [],
     eInvoicePdf: item.eInvoicePdf,
+    comment: item.comment || '',
   }));
 };
 
@@ -381,8 +382,8 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
     },
     {
       title: 'Comment',
-      dataIndex: 'comment',
-      key: 'comment',
+      dataIndex: 'invoiceComment',
+      key: 'invoiceComment',
       className: 'cell cell-comment',
       width: 100,
       render: (text) => <TruncatedCell text={text} />,
@@ -395,7 +396,9 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
       width: 100,
       render: (text, record) => (
         <div onClick={() => text === 'ERROR' && handleErrorClick(record.id)}>
-          <StatusChip status={text} />
+          {record.comment ? <Tooltip title={record.comment}>
+            <StatusChip status={text} />
+          </Tooltip> : <StatusChip status={text} />}
         </div>
       ),
     },
