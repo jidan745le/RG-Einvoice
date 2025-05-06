@@ -39,6 +39,9 @@ axiosInstance.interceptors.response.use(
             const currentUrl = window.location.href;
             // Redirect to home page
             window.location.href = '/?returnUrl=' + encodeURIComponent(currentUrl);
+        } else if (error.response && error.response.status === 403) {
+            // Redirect to home page
+            window.location.href = '/marketplace';
         }
         return Promise.reject(error);
     }
