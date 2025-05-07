@@ -1,5 +1,18 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { fetchAppConfig } from '../utils/appConfigService';
+import { generateThemeFromPrimaryColor } from '../utils/themeUtils';
+
+// 默认主题设置
+export const DEFAULT_THEME = {
+    primary: '#c0a801',
+    inversePrimary: '#dbc84d',
+    inverseSurface: '#20201e',
+    textOnPrimary: '#ffffff',
+    secondaryContainer: '#f6efba'
+};
+
+// 导出 THEME 对象以供组件使用
+export const THEME = { ...DEFAULT_THEME };
 
 // Create context for app configuration
 const AppConfigContext = createContext();
@@ -23,20 +36,35 @@ export const useAppConfig = () => {
  * @param {string} props.appcode - Application code for configuration
  * @param {boolean} props.useMock - Whether to use mock data (for development)
  */
-export const AppConfigProvider = ({ children, appcode = 'einvoice' }) => {
+export const AppConfigProvider = ({ children, appcode = 'einvoice', useMock = false }) => {
     const [config, setConfig] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [theme, setTheme] = useState(DEFAULT_THEME);
 
     useEffect(() => {
         const loadConfig = async () => {
             try {
                 setLoading(true);
 
-
-                // Fetch real data from API
-                const configData = await fetchAppConfig(appcode);
+                // Fetch configuration data
+                const configData = await fetchAppConfig(appcode, useMock);
                 setConfig(configData);
+
+                // Generate theme based on primary color
+                if (configData?.settings?.themeSetting?.primaryColor) {
+                    const generatedTheme = generateThemeFromPrimaryColor(
+                        configData.settings.themeSetting.primaryColor
+                    );
+
+                    // Update THEME object for backward compatibility
+                    Object.keys(THEME).forEach(key => {
+                        THEME[key] = generatedTheme[key];
+                    });
+
+                    setTheme(generatedTheme);
+                }
+
                 setError(null);
             } catch (err) {
                 console.error('Failed to load app configuration:', err);
@@ -47,10 +75,10 @@ export const AppConfigProvider = ({ children, appcode = 'einvoice' }) => {
         };
 
         loadConfig();
-    }, [appcode]);
+    }, [appcode, useMock]);
 
     return (
-        <AppConfigContext.Provider value={{ config, loading, error, appcode }}>
+        <AppConfigContext.Provider value={{ config, loading, error, appcode, theme }}>
             {children}
         </AppConfigContext.Provider>
     );

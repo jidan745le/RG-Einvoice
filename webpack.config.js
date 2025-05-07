@@ -76,6 +76,11 @@ module.exports = (env, argv) => {
           // target: 'http://localhost:3003',
           changeOrigin: true,
           // pathRewrite: (path) => path.replace(/^\/e-invoice\/api/, '')
+        },
+        {
+          context: ['/api'],
+          target: 'http://8.219.189.158:81',
+          changeOrigin: true,
         }
       ]
     }

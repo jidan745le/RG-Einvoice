@@ -2,10 +2,10 @@ import { Icon } from '@material-ui/core';
 import { Table, Tooltip } from 'antd';
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import axiosInstance from '../utils/axiosConfig';
+import { useAppConfig } from './AppConfigProvider';
 import FilterRow from './FilterRow';
 import PdfChip from './PdfChip';
 import StatusChip from './StatusChip';
-import { THEME } from './TopBar';
 
 // Helper function to determine status from API data
 const mapApiToStatus = (item) => {
@@ -95,6 +95,7 @@ const TruncatedCell = ({ text, className = 'cell-text', estimatedCharWidth = 8, 
 };
 
 const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterValues, onFilterChange, onSelectionChange }, ref) => {
+  const { theme } = useAppConfig();
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [showPopover, setShowPopover] = useState(false);
   const [errorInvoiceId, setErrorInvoiceId] = useState(null);
@@ -543,16 +544,16 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
           }
 
           .invoice-table-ant .ant-checkbox-checked .ant-checkbox-inner {
-            background-color: ${THEME.primary} !important;
-            border-color: ${THEME.primary} !important;
+            background-color: ${theme.primary} !important;
+            border-color: ${theme.primary} !important;
           }
 
           .invoice-table-ant .ant-pagination-item-active {
-            border-color: ${THEME.primary} !important;
+            border-color: ${theme.primary} !important;
           }
 
           .invoice-table-ant .ant-pagination-item-active a {
-            color: ${THEME.primary} !important;
+            color: ${theme.primary} !important;
           }
            
           .custom-checkbox {
@@ -569,8 +570,8 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
           }
            
           .custom-checkbox:checked {
-            background-color: ${THEME.primary};
-            border-color: ${THEME.primary};
+            background-color: ${theme.primary};
+            border-color: ${theme.primary};
           }
            
           .custom-checkbox:checked:after {
@@ -587,7 +588,7 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
           }
         `}
       </style>
-      <div className="custom-table-header" style={{ backgroundColor: THEME.secondaryContainer }}>
+      <div className="custom-table-header" style={{ backgroundColor: theme.secondaryContainer }}>
         <div className="table-row">
           <div className="cell-expand" style={{ display: 'flex', flex: 48, minWidth: 0, justifyContent: 'center', alignItems: 'center' }}>
             <Icon
@@ -609,8 +610,8 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
               style={{
                 width: '16px',
                 height: '16px',
-                backgroundColor: allSelected ? THEME.primary : '#fff',
-                borderColor: allSelected ? THEME.primary : '#d9d9d9'
+                backgroundColor: allSelected ? theme.primary : '#fff',
+                borderColor: allSelected ? theme.primary : '#d9d9d9'
               }}
             />
           </div>

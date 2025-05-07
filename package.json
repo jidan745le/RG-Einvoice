@@ -19,6 +19,7 @@
   "dependencies": {
     "@material-ui/core": "^4.12.4",
     "@material-ui/icons": "^4.11.3",
+    "@material/material-color-utilities": "^0.3.0",
     "antd": "^5.24.6",
     "axios": "^1.8.4",
     "lodash": "^4.17.21",

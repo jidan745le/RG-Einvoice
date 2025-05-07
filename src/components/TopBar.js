@@ -1,24 +1,16 @@
-import React from 'react';
 import { Icon } from '@material-ui/core';
+import React from 'react';
 import styled from 'styled-components';
+import { useAppConfig } from './AppConfigProvider';
 
-// 定义主题色和派生色
-export const THEME = {
-  primary: 'rgb(192,168,1)',        // 主题色
-  inversePrimary: 'rgb(72,64,0)',   // 派生色，用于选中标签文字
-  textOnPrimary: '#ffffff',         // 主题色上的文字颜色
-  primaryLight: 'rgb(219,200,77)',  // 主题色亮色变体，用于Logo等
-  secondaryContainer: 'rgb(246, 239, 186)', // 浅黄色，主题色的淡化版本
-};
-
-// 基础容器
+// Theme will be dynamically generated based on config
 const TopBarContainer = styled.div`
   display: flex;
   width: 100%;
 `;
 
 const TopBarContent = styled.div`
-  background: ${THEME.primary};
+  background: ${props => props.theme.primary};
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -39,8 +31,6 @@ const TopBarLogo = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 50px;
-  height: 50px;
 `;
 
 const AppName = styled.div`
@@ -70,11 +60,11 @@ const Tab = styled.div`
   align-items: center;
   justify-content: flex-start;
   height: 100%;
-  background: ${props => props.selected ? THEME.primaryLight : 'transparent'};
+  background: ${props => props.selected ? props.theme.inversePrimary : 'transparent'};
 `;
 
 const TabLabel = styled.div`
-  color: ${props => props.selected ? THEME.inversePrimary : THEME.textOnPrimary};
+  color: ${props => props.selected ? props.theme.inverseSurface : props.theme.textOnPrimary};
   text-align: left;
   font-size: 14px;
   line-height: 20px;
@@ -122,7 +112,7 @@ const LanguageText = styled.div`
 `;
 
 const UserAvatar = styled.div`
-  background: ${THEME.primaryLight};
+  background: ${props => props.theme.inversePrimary};
   border-radius: 200px;
   display: flex;
   align-items: center;
@@ -133,7 +123,7 @@ const UserAvatar = styled.div`
 `;
 
 const AvatarText = styled.div`
-  color: ${THEME.inversePrimary};
+  color: ${props => props.theme.inverseSurface};
   font-size: 16px;
   line-height: 24px;
   letter-spacing: 0.5px;
@@ -150,63 +140,73 @@ const IconContainer = styled.div`
 // 新增图标样式
 const StyledIconWrapper = styled.div`
   .icon-primary {
-    color: ${THEME.primaryLight};
+    color: ${props => props.theme.inverseSurface};
   }
   
   .icon-onprimary {
-    color: ${THEME.textOnPrimary};
+    color: ${props => props.theme.textOnPrimary};
   }
   
   .icon-selected {
-    color: ${THEME.inversePrimary};
+    color: ${props => props.theme.inverseSurface};
   }
 `;
 
 const TopBar = () => {
+  const { config, loading, theme } = useAppConfig();
+
+  // 获取应用程序和租户信息
+  const themeSettings = config?.settings?.themeSetting;
+  const logoUrl = themeSettings?.logoUrl || "";
+  const appName = config?.application?.name || "Electronic Invoice System";
+  const tenantName = config?.tenant?.name || "SIMALFA";
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
   return (
-    <StyledIconWrapper>
+    <StyledIconWrapper theme={theme}>
       <TopBarContainer>
-        <TopBarContent>
+        <TopBarContent theme={theme}>
           <LogoContainer>
             <TopBarLogo>
-              <IconContainer className="icon">
-                <Icon className="icon-primary icon-medium">water_drop</Icon>
-              </IconContainer>
+              <img src={`/api/${logoUrl}`} alt="logo" />
             </TopBarLogo>
-            <AppName>SIMALFA</AppName>
+            {/* <AppName>{tenantName}</AppName> */}
           </LogoContainer>
 
           <Tabs>
-            <Tab selected>
+            <Tab selected theme={theme}>
               <IconContainer className="icon">
                 <Icon className="icon-selected icon-medium">receipt_long</Icon>
               </IconContainer>
-              <TabLabel selected>E-Invoice (China)</TabLabel>
+              <TabLabel selected theme={theme}>E-Invoice (China)</TabLabel>
             </Tab>
 
-            <Tab>
+            <Tab theme={theme}>
               <IconContainer className="icon">
                 <Icon className="icon-onprimary icon-medium icon-light">box</Icon>
               </IconContainer>
-              <TabLabel>Lot Management</TabLabel>
+              <TabLabel theme={theme}>Lot Management</TabLabel>
             </Tab>
 
             <VerticalDivider />
 
-            <Tab>
+            <Tab theme={theme}>
               <IconContainer className="icon">
                 <Icon className="icon-onprimary icon-medium icon-light">family_history</Icon>
               </IconContainer>
-              <TabLabel>Cross Entity Orders</TabLabel>
+              <TabLabel theme={theme}>Cross Entity Orders</TabLabel>
             </Tab>
 
             <VerticalDivider />
 
-            <Tab>
+            <Tab theme={theme}>
               <IconContainer className="icon">
                 <Icon className="icon-onprimary icon-medium icon-light">psychiatry</Icon>
               </IconContainer>
-              <TabLabel>OMS</TabLabel>
+              <TabLabel theme={theme}>OMS</TabLabel>
             </Tab>
           </Tabs>
 
@@ -221,8 +221,8 @@ const TopBar = () => {
               </IconContainer>
             </LanguageSelector>
 
-            <UserAvatar>
-              <AvatarText>AB</AvatarText>
+            <UserAvatar theme={theme}>
+              <AvatarText theme={theme}>AB</AvatarText>
             </UserAvatar>
           </ActionsContainer>
         </TopBarContent>
