@@ -7,7 +7,12 @@ import axios from 'axios';
  */
 export const fetchAppConfig = async (appcode) => {
     try {
-        const response = await axios.get(`/api/app-config${appcode ? `?appcode=${appcode}` : ''}`);
+        const token = localStorage.getItem('authToken');
+        const response = await axios.get(`/api/app-config${appcode ? `?appcode=${appcode}` : ''}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
         return response.data;
     } catch (error) {
         console.error('Error fetching app configuration:', error);
