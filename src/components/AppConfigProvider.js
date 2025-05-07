@@ -79,7 +79,7 @@ export const AppConfigProvider = ({ children, appcode = 'einvoice', useMock = fa
 
     return (
         <AppConfigContext.Provider value={{ config, loading, error, appcode, theme }}>
-            {children}
+            {loading ? <div>Loading...</div> : children}
         </AppConfigContext.Provider>
     );
 };

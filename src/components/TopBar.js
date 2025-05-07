@@ -171,7 +171,7 @@ const TopBar = () => {
         <TopBarContent theme={theme}>
           <LogoContainer>
             <TopBarLogo>
-              <img src={`/api/${logoUrl}`} alt="logo" />
+              <img height={50} src={`/api/${logoUrl}`} alt="logo" />
             </TopBarLogo>
             {/* <AppName>{tenantName}</AppName> */}
           </LogoContainer>
