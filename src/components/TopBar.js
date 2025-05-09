@@ -142,16 +142,12 @@ const UserDropdown = styled.div`
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   border-radius: 4px;
   z-index: 1000;
-  display: none;
+  display: ${props => props.isOpen ? 'block' : 'none'};
   margin-top: 4px;
 `;
 
 const UserMenuContainer = styled.div`
   position: relative;
-  
-  &:hover ${UserDropdown} {
-    display: block;
-  }
 `;
 
 const UserInfoSection = styled.div`
@@ -288,6 +284,7 @@ const StyledIconWrapper = styled.div`
 const TopBar = () => {
   const { config, loading, theme } = useAppConfig();
   const [userInfo, setUserInfo] = useState(null);
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
   // 获取应用程序和租户信息
@@ -306,7 +303,23 @@ const TopBar = () => {
     } catch (error) {
       console.error('Error parsing userInfo from localStorage:', error);
     }
+
+    // Add click outside listener to close dropdown
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setUserDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
+
+  const toggleUserDropdown = () => {
+    setUserDropdownOpen(!userDropdownOpen);
+  };
 
   const handleLogout = () => {
     // Implement logout logic here
@@ -347,31 +360,6 @@ const TopBar = () => {
               </IconContainer>
               <TabLabel selected theme={theme}>E-Invoice (China)</TabLabel>
             </Tab>
-
-            <Tab theme={theme}>
-              <IconContainer className="icon">
-                <Icon className="icon-onprimary icon-medium icon-light">box</Icon>
-              </IconContainer>
-              <TabLabel theme={theme}>Lot Management</TabLabel>
-            </Tab>
-
-            <VerticalDivider />
-
-            <Tab theme={theme}>
-              <IconContainer className="icon">
-                <Icon className="icon-onprimary icon-medium icon-light">family_history</Icon>
-              </IconContainer>
-              <TabLabel theme={theme}>Cross Entity Orders</TabLabel>
-            </Tab>
-
-            <VerticalDivider />
-
-            <Tab theme={theme}>
-              <IconContainer className="icon">
-                <Icon className="icon-onprimary icon-medium icon-light">psychiatry</Icon>
-              </IconContainer>
-              <TabLabel theme={theme}>OMS</TabLabel>
-            </Tab>
           </Tabs>
 
           <ActionsContainer>
@@ -386,11 +374,11 @@ const TopBar = () => {
             </LanguageSelector>
 
             <UserMenuContainer ref={dropdownRef}>
-              <UserAvatar theme={theme}>
+              <UserAvatar theme={theme} onClick={toggleUserDropdown}>
                 <AvatarText theme={theme}>{getUserInitials()}</AvatarText>
               </UserAvatar>
 
-              <UserDropdown>
+              <UserDropdown isOpen={userDropdownOpen}>
                 <UserAccountInfo>
                   <AccountAvatar theme={theme}>
                     <AccountAvatarText>{getUserInitials()}</AccountAvatarText>
