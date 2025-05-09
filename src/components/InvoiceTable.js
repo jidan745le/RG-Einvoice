@@ -26,24 +26,43 @@ const mapApiToStatus = (item) => {
 
 // Function to transform API response data
 const transformInvoiceData = (apiData) => {
-  return apiData.map(item => ({
-    id: item.erpInvoiceId.toString(),
-    postDate: item.orderDate ? new Date(item.orderDate).toLocaleDateString() : '--',
-    type: item.fapiaoType || '--',
-    customerName: item.customerName || '--',
-    amount: item.invoiceAmount || 0,
-    invoiceComment: item.invoiceComment || '',
-    status: item.status,
-    hasPdf: !!item.eInvoicePdf,
-    orderNum: item.orderNumber,
-    poNum: item.poNumber,
-    einvoiceId: item.eInvoiceId,
-    einvoiceDate: item.eInvoiceDate ? new Date(item.eInvoiceDate).toLocaleDateString() : '--',
-    submittedBy: item.submittedBy,
-    invoiceDetails: item.invoiceDetails || [],
-    eInvoicePdf: item.eInvoicePdf,
-    comment: item.comment || '',
-  }));
+  return apiData.map(item => {
+    // Calculate total amount from invoice details if available
+    let calculatedAmount = item.invoiceAmount !== undefined && item.invoiceAmount !== null ?
+      parseFloat(item.invoiceAmount) : 0;
+
+    if (item.invoiceDetails && item.invoiceDetails.length > 0) {
+      const subtotal = item.invoiceDetails.reduce((sum, detail) =>
+        sum + (parseFloat(detail.docExtPrice || 0)), 0);
+
+      const taxTotal = item.invoiceDetails.reduce((sum, detail) => {
+        const taxAmount = parseFloat(detail.docExtPrice || 0) * parseFloat(detail.taxPercent || 0) / 100;
+        return sum + taxAmount;
+      }, 0);
+
+      calculatedAmount = subtotal + taxTotal;
+    }
+
+    return {
+      id: item.erpInvoiceId.toString(),
+      postDate: item.orderDate ? new Date(item.orderDate).toLocaleDateString() : '--',
+      type: item.fapiaoType || '--',
+      customerName: item.customerName || '--',
+      amount: calculatedAmount,
+      calculatedFromDetails: !!item.invoiceDetails && item.invoiceDetails.length > 0,
+      invoiceComment: item.invoiceComment || '',
+      status: item.status,
+      hasPdf: !!item.eInvoicePdf,
+      orderNum: item.orderNumber,
+      poNum: item.poNumber,
+      einvoiceId: item.eInvoiceId,
+      einvoiceDate: item.eInvoiceDate ? new Date(item.eInvoiceDate).toLocaleDateString() : '--',
+      submittedBy: item.submittedBy,
+      invoiceDetails: item.invoiceDetails || [],
+      eInvoicePdf: item.eInvoicePdf,
+      comment: item.comment || '',
+    };
+  });
 };
 
 // Function to build query parameters for API request
@@ -58,7 +77,30 @@ const buildApiQueryParams = (filterValues) => {
   if (filterValues.customerName) params.append('customerName', filterValues.customerName);
   if (filterValues.status) params.append('status', filterValues.status);
   if (filterValues.einvoiceId) params.append('eInvoiceId', filterValues.einvoiceId);
-  if (filterValues.postDate) params.append('startDate', filterValues.postDate);
+
+  // Handle date ranges
+  if (filterValues.postDate) {
+    if (typeof filterValues.postDate === 'object' && filterValues.postDate.start && filterValues.postDate.end) {
+      // It's a date range
+      params.append('startDate', filterValues.postDate.start);
+      params.append('endDate', filterValues.postDate.end);
+    } else if (typeof filterValues.postDate === 'string') {
+      // For backward compatibility with single date
+      params.append('startDate', filterValues.postDate);
+    }
+  }
+
+  if (filterValues.einvoiceDate) {
+    if (typeof filterValues.einvoiceDate === 'object' && filterValues.einvoiceDate.start && filterValues.einvoiceDate.end) {
+      // It's a date range
+      params.append('eInvoiceStartDate', filterValues.einvoiceDate.start);
+      params.append('eInvoiceEndDate', filterValues.einvoiceDate.end);
+    } else if (typeof filterValues.einvoiceDate === 'string') {
+      // For backward compatibility with single date
+      params.append('eInvoiceDate', filterValues.einvoiceDate);
+    }
+  }
+
   if (filterValues.type) params.append('fapiaoType', filterValues.type);
   if (filterValues.submittedBy) params.append('submittedBy', filterValues.submittedBy);
 
@@ -95,7 +137,7 @@ const TruncatedCell = ({ text, className = 'cell-text', estimatedCharWidth = 8, 
 };
 
 const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterValues, onFilterChange, onSelectionChange }, ref) => {
-  const { theme } = useAppConfig();
+  const { theme, config } = useAppConfig();
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [showPopover, setShowPopover] = useState(false);
   const [errorInvoiceId, setErrorInvoiceId] = useState(null);
@@ -109,13 +151,15 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
   const [showFilterRow, setShowFilterRow] = useState(true);
   const didMountRef = useRef(false);
 
+
   useEffect(() => {
     if (!didMountRef.current) {
       didMountRef.current = true;
       return; // 跳过第一次
     }
     if (externalFilterValues) {
-      setFilterValues(externalFilterValues);
+      console.log('Updating filter values from external:', externalFilterValues);
+      setFilterValues(prevValues => ({ ...prevValues, ...externalFilterValues }));
     }
   }, [externalFilterValues]);
 
@@ -258,7 +302,7 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
         key: 'sellingShipQty',
         width: 80,
         align: 'right',
-        render: (text, record) => `${text} ${record.uomDescription}`,
+        render: (text, record) => `${record.uomDescription}`,
       },
       {
         title: 'Unit Price',
@@ -282,7 +326,7 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
         key: 'taxPercent',
         width: 100,
         align: 'right',
-        render: (text) => `${text}%`,
+        render: (text) => `${parseFloat(text).toFixed(2)}%`,
       },
       {
         title: 'Tax Total',
@@ -297,6 +341,14 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
         className: 'highlighted-column',
       },
     ];
+
+    // Calculate totals from invoice details
+    const subtotal = record.invoiceDetails.reduce((sum, item) => sum + parseFloat(item.docExtPrice || 0), 0);
+    const taxTotal = record.invoiceDetails.reduce((sum, item) => {
+      const taxAmount = parseFloat(item.docExtPrice || 0) * parseFloat(item.taxPercent || 0) / 100;
+      return sum + taxAmount;
+    }, 0);
+    const invoiceTotal = subtotal + taxTotal;
 
     return (
       <div style={{ padding: '10px', backgroundColor: '#fafafa' }}>
@@ -350,7 +402,8 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
       className: 'cell cell-id',
       width: 100,
       render: (text) => {
-        const url = `https://simalfa.kineticcloud.cn/SIMALFAProd/Apps/Erp/Home/#/view/OMGO3010/Erp.UI.ARInvoiceTracker?channelid=12389eab-5d7a-4288-8621-30a9741c3a24&layerVersion=0&baseAppVersion=0&company=SIMALFA&site=MfgSys&pageId=Details&KeyFields.InvoiceNum=${text}&pageChanged=true`;
+        console.log(config, "config")
+        const url = `https://simalfa.kineticcloud.cn/SIMALFAProd/Apps/Erp/Home/#/view/OMGO3010/Erp.UI.ARInvoiceTracker?channelid=12389eab-5d7a-4288-8621-30a9741c3a24&layerVersion=0&baseAppVersion=0&company=${config?.settings?.serverSettings?.companyID || ""}&site=MfgSys&pageId=Details&KeyFields.InvoiceNum=${text}&pageChanged=true`;
         return <a href={url} target="_blank" rel="noopener noreferrer"><TruncatedCell text={text} className="cell-text cell-link" /></a>;
       },
     },
@@ -376,9 +429,14 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
       key: 'amount',
       className: 'cell cell-amount',
       width: 100,
-      render: (text) => {
-        const formattedAmount = text ? `¥${parseFloat(text).toFixed(2)}` : '--';
-        return <TruncatedCell text={formattedAmount} />;
+      render: (text, record) => {
+        const formattedAmount = text !== null && text !== undefined ? `¥${parseFloat(text).toFixed(2)}` : '--';
+
+        return (
+          <div className='cell-text'>
+            {formattedAmount}
+          </div>
+        );
       },
     },
     {
@@ -585,6 +643,11 @@ const InvoiceTable = forwardRef(({ onDataChange, filterValues: externalFilterVal
             border-width: 0 2px 2px 0;
             transform: rotate(45deg);
             display: block;
+          }
+          
+          .invoice-table-ant .calculated-amount {
+            color: ${theme.primary} !important;
+            font-weight: 500;
           }
         `}
       </style>

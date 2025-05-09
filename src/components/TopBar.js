@@ -254,7 +254,6 @@ const TenantName = styled.div`
 const VerificationTag = styled.div`
   font-size: 12px;
   color: ${props => props.theme.primary};
-  background: ${props => props.theme.primary}10;
   padding: 6px 0px;
   border-radius: 4px;
 `;
@@ -392,6 +391,29 @@ const TopBar = () => {
                     </TenantInfo>
                   </AccountDetails>
                 </UserAccountInfo>
+
+                <MenuSection>
+                  <MenuItem onClick={() => window.location.href = '/help'}>
+                    <IconContainer className="icon">
+                      <Icon className="icon-grey icon-medium">help_outline</Icon>
+                    </IconContainer>
+                    <MenuItemLabel>Help</MenuItemLabel>
+                  </MenuItem>
+
+                  <MenuItem onClick={() => window.location.href = '/administration/einvoice'}>
+                    <IconContainer className="icon">
+                      <Icon className="icon-grey icon-medium">receipt</Icon>
+                    </IconContainer>
+                    <MenuItemLabel>E-Invoice Management</MenuItemLabel>
+                  </MenuItem>
+
+                  <MenuItem onClick={handleLogout}>
+                    <IconContainer className="icon">
+                      <Icon className="icon-grey icon-medium">logout</Icon>
+                    </IconContainer>
+                    <MenuItemLabel>Sign Out</MenuItemLabel>
+                  </MenuItem>
+                </MenuSection>
               </UserDropdown>
             </UserMenuContainer>
           </ActionsContainer>

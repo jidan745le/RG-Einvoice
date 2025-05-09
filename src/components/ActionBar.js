@@ -216,11 +216,6 @@ const ActionBar = ({ selectedInvoices = [], onRefresh, currentStatus }) => {
           Export
         </Button>
 
-        <Button
-          type="primary"
-          style={iconButtonStyle}
-          icon={<Icon className="icon-blue icon-medium icon-light">settings</Icon>}
-        />
       </div>
     </div>
   );

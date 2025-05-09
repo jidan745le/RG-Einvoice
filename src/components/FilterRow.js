@@ -1,11 +1,12 @@
 import { Icon } from '@material-ui/core';
 import { DatePicker, Input, Select } from 'antd';
+import dayjs from 'dayjs';
 import { debounce } from 'lodash';
-import moment from 'moment';
 import PropTypes from 'prop-types';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 const { Option } = Select;
+const { RangePicker } = DatePicker;
 
 /**
  * 表格过滤行组件
@@ -22,7 +23,14 @@ const FilterRow = ({ onFilterChange, filterValues = {}, onClearFilters, columns,
 
   // Update local state when props change
   useEffect(() => {
-    setLocalFilterValues(filterValues);
+    console.log("FilterValues changed from props:", filterValues);
+    setLocalFilterValues(prevValues => {
+      // 避免不必要的更新
+      if (JSON.stringify(prevValues) === JSON.stringify(filterValues)) {
+        return prevValues;
+      }
+      return filterValues;
+    });
   }, [filterValues]);
 
   /**
@@ -51,8 +59,13 @@ const FilterRow = ({ onFilterChange, filterValues = {}, onClearFilters, columns,
    * @param {*} value - 新的值
    */
   const handleFilterChange = (field, value) => {
+    console.log(`Filter change for ${field}:`, value);
+
+    // Special handling for empty strings
     const newValue = value === '' ? undefined : value;
+
     const newFilterValues = { ...localFilterValues, [field]: newValue };
+    console.log('Updated filter values:', newFilterValues);
 
     // Update local state immediately for responsive UI
     setLocalFilterValues(newFilterValues);
@@ -75,26 +88,70 @@ const FilterRow = ({ onFilterChange, filterValues = {}, onClearFilters, columns,
    * 处理日期变化
    * 转换为OData兼容的日期格式
    */
-  const handleDateChange = (date, dateString, field) => {
-    if (date) {
-      // Format date correctly for OData datetime compatibility
-      const formattedDate = date.format('YYYY-MM-DD');
-      handleFilterChange(field, formattedDate);
+  const handleDateChange = (dates, dateStrings, field) => {
+    console.log(`Date range change for ${field}:`, dates, dateStrings);
+
+    // 如果dates为null，说明用户清除了选择
+    if (!dates) {
+      console.log(`Clearing date range for ${field}`);
+      handleFilterChange(field, undefined);
+      return;
+    }
+
+    // 检查是否有有效的开始和结束日期
+    if (dates && dates[0] && dates[1]) {
+      // Format dates correctly for OData datetime compatibility
+      const startDate = dates[0].format('YYYY-MM-DD');
+      const endDate = dates[1].format('YYYY-MM-DD');
+      console.log(`Setting date range for ${field}:`, startDate, endDate);
+
+      // Store as an object with start and end properties
+      handleFilterChange(field, { start: startDate, end: endDate });
     } else {
+      // 如果有任何一个日期未选择，则不设置过滤
+      console.log(`Incomplete date range for ${field}, clearing filter`);
       handleFilterChange(field, undefined);
     }
   };
 
+  console.log(localFilterValues, "localFilterValues")
+
   const filterFields = useMemo(() => {
+    console.log("Creating filter fields with values:", localFilterValues);
+
+    // 辅助函数来检查日期范围值是否有效
+    const getDateRangeValue = (dateRange) => {
+      if (!dateRange) return null;
+
+      try {
+        // 确保是对象且有start和end属性
+        if (typeof dateRange === 'object' && dateRange.start && dateRange.end) {
+          const startDayjs = dayjs(dateRange.start);
+          const endDayjs = dayjs(dateRange.end);
+
+          // 验证是否为有效的dayjs对象
+          if (startDayjs.isValid() && endDayjs.isValid()) {
+            return [startDayjs, endDayjs];
+          }
+        }
+      } catch (error) {
+        console.error("Error parsing date range:", error);
+      }
+
+      return null;
+    };
+
     const components = [
-      <DatePicker
-        placeholder="Post Date"
-        value={localFilterValues.postDate ? moment(localFilterValues.postDate.split('T')[0]) : null}
-        onChange={(date, dateString) => handleDateChange(date, dateString, 'postDate')}
+      <RangePicker
+        placeholder={["Start Date", "End Date"]}
+        value={getDateRangeValue(localFilterValues.postDate)}
+        onChange={(dates, dateStrings) => handleDateChange(dates, dateStrings, 'postDate')}
         style={{ width: '80%' }}
         size="small"
         format="YYYY-MM-DD"
-        title="Filter by post date"
+        title="Filter by post date range"
+        allowClear
+        showToday={false}
       />, <Input
         placeholder="ERP Invoice ID"
         style={{ width: '80%' }}
@@ -184,14 +241,17 @@ const FilterRow = ({ onFilterChange, filterValues = {}, onClearFilters, columns,
         <Option value="false">No</Option>
       </Select>,
 
-      <DatePicker
-        placeholder="E-Invoice Date"
-        value={localFilterValues.einvoiceDate ? moment(localFilterValues.einvoiceDate.split('T')[0]) : null}
-        onChange={(date, dateString) => handleDateChange(date, dateString, 'einvoiceDate')}
+      <RangePicker
+        placeholder={["Start Date", "End Date"]}
+        value={getDateRangeValue(localFilterValues.einvoiceDate)}
+        onChange={(dates, dateStrings) => handleDateChange(dates, dateStrings, 'einvoiceDate')}
         style={{ width: '80%' }}
         size="small"
         format="YYYY-MM-DD"
-        title="Filter by e-invoice date"
+        title="Filter by e-invoice date range"
+        allowClear
+        showToday={false}
+        disabledDate={() => false}
       />,
       <Input
         placeholder="E-Invoice Submitted By"
@@ -211,7 +271,7 @@ const FilterRow = ({ onFilterChange, filterValues = {}, onClearFilters, columns,
         component: components[index]
       }
     })
-  }, [])
+  }, [localFilterValues])
 
   return (
     <div style={{ display: showFilterRow ? 'flex' : 'none' }} className="filter-row">
@@ -347,7 +407,7 @@ const FilterRow = ({ onFilterChange, filterValues = {}, onClearFilters, columns,
         <div className="cell-einvoice-date filter-cell">
           <DatePicker
             placeholder="E-Invoice Date"
-            value={localFilterValues.einvoiceDate ? moment(localFilterValues.einvoiceDate.split('T')[0]) : null}
+            value={localFilterValues.einvoiceDate ? dayjs(localFilterValues.einvoiceDate) : null}
             onChange={(date, dateString) => handleDateChange(date, dateString, 'einvoiceDate')}
             style={{ width: '80%' }}
             size="small"

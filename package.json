@@ -22,6 +22,7 @@
     "@material/material-color-utilities": "^0.3.0",
     "antd": "^5.24.6",
     "axios": "^1.8.4",
+    "dayjs": "^1.11.13",
     "lodash": "^4.17.21",
     "moment": "^2.30.1",
     "react": "^17.0.2",
